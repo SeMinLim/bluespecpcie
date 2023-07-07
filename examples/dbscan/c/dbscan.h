@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <cmath>
+#include <stdint.h>
 
 
 #define CORE_POINT 1
@@ -20,29 +21,20 @@ typedef struct Point {
 	int clusterID;  // clustered ID
 }Point;
 
-class DBSCAN {
-public:    
+typedef struct DBSCAN {
 	std::vector<Point> m_points;
-	unsigned int m_pointSize;
-	unsigned int m_minPoints;
+	uint32_t m_pointSize;
+	uint32_t m_minPoints;
 	float m_epsilon;
+}DBSCAN;
 
-	DBSCAN(unsigned int minPts, float eps, std::vector<Point> points) {
-		m_minPoints = minPts;
-		m_epsilon = eps;
-		m_points = points;
-		m_pointSize = points.size();
-	}
-	~DBSCAN(){}
-
-	int getTotalPointSize() {return m_pointSize;}
-	int getMinimumClusterSize() {return m_minPoints;}
-	int getEpsilonSize() {return m_epsilon;}
-
-	int run();
-	std::vector<int> calculateCluster(Point point);
-	int expandCluster(Point point, int clusterID);
-	inline double calculateDistance(const Point& pointCore, const Point& pointTarget);	
-};
+void initialize(DBSCAN *ds, uint32_t minPts, float eps, std::vector<Point> points);
+inline float calculateDistance(const Point& pointCore, const Point& pointTarget);
+std::vector<int> calculateCluster(DBSCAN *ds, Point point);
+int expandCluster(DBSCAN *ds, Point point, int clusterID);
+void run(DBSCAN *ds);
+int getTotalPointSize(DBSCAN *ds);
+int getMinClusterSize(DBSCAN *ds);
+int getEpsilon(DBSCAN *ds);
 
 #endif // DBSCAN_H
