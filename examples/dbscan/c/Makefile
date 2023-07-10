@@ -1,5 +1,5 @@
 LIB = -lrt
 
-all: $(wildcard *.cpp)
+all: $(wildcard *.c)
 	mkdir -p obj
-	g++ -o obj/main $(wildcard *.cpp) -Wall -pedantic -g -O2 -lm
+	gcc -o obj/main $(wildcard *.c) -Wall -pedantic -g -O2 -lm

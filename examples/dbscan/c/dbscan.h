@@ -2,11 +2,9 @@
 #define DBSCAN_H
 
 
-#include <vector>
-#include <cmath>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <iostream>
 
 
 #define CORE_POINT 1
@@ -25,8 +23,9 @@ typedef struct Point {
 }Point;
 
 void initialize(uint32_t minPts, float eps);
-inline float calculateDistance(const Point& pointCore, const Point& pointTarget);
-std::vector<int> calculateCluster(Point point);
+float calculateDistance(const Point pointCore, const Point pointTarget);
+void calculateClusterSeeds(Point point);
+void calculateClusterNeighbours(Point point);
 int expandCluster(Point point, int clusterID);
 void run();
 void readBenchmarkData();
