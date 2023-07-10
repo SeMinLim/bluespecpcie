@@ -5,6 +5,8 @@
 #include <vector>
 #include <cmath>
 #include <stdint.h>
+#include <stdio.h>
+#include <iostream>
 
 
 #define CORE_POINT 1
@@ -15,26 +17,19 @@
 #define NOISE -2
 #define FAILURE -3
 
+#define NumPoints 212
 
 typedef struct Point {
 	float x, y, z;  // 3D data
 	int clusterID;  // clustered ID
 }Point;
 
-typedef struct DBSCAN {
-	std::vector<Point> m_points;
-	uint32_t m_pointSize;
-	uint32_t m_minPoints;
-	float m_epsilon;
-}DBSCAN;
-
-void initialize(DBSCAN *ds, uint32_t minPts, float eps, std::vector<Point> points);
+void initialize(uint32_t minPts, float eps);
 inline float calculateDistance(const Point& pointCore, const Point& pointTarget);
-std::vector<int> calculateCluster(DBSCAN *ds, Point point);
-int expandCluster(DBSCAN *ds, Point point, int clusterID);
-void run(DBSCAN *ds);
-int getTotalPointSize(DBSCAN *ds);
-int getMinClusterSize(DBSCAN *ds);
-int getEpsilon(DBSCAN *ds);
+std::vector<int> calculateCluster(Point point);
+int expandCluster(Point point, int clusterID);
+void run();
+void readBenchmarkData();
+void printResults();
 
 #endif // DBSCAN_H
