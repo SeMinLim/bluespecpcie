@@ -1,4 +1,26 @@
-#include "dbscan.h"
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+
+
+#define CORE_POINT 1
+#define BORDER_POINT 2
+
+#define SUCCESS 0
+#define UNCLASSIFIED -1
+#define NOISE -2
+#define FAILURE -3
+
+#define NumPoints 212
+
+#define MINIMUM_POINTS 4     // minimum number of cluster
+#define EPSILON (0.75*0.75)  // distance for clustering, metre^2i
+
+
+typedef struct Point {
+	float x, y, z;  // 3D data
+	int clusterID;  // clustered ID
+}Point;
 
 
 Point m_points[NumPoints];
@@ -15,7 +37,7 @@ uint16_t clusterNeighboursSize = 0;
 
 void readBenchmarkData() {
 	FILE *stream;
-	stream = fopen ("benchmark_hepta.dat","ra");
+	stream = fopen ("benchmark.dat","ra");
 
 	uint32_t cluster, i = 0;
 
@@ -120,4 +142,20 @@ void printResults() {
 		printf("%5.2lf %5.2lf %5.2lf: %d\n", m_points[i].x, m_points[i].y, m_points[i].z, m_points[i].clusterID);
 		++i;
 	}
+}
+
+int main() {
+	// read point data
+	readBenchmarkData();
+	
+	// Initialize	
+	initialize(MINIMUM_POINTS, EPSILON);
+
+	// main loop
+	run();
+	
+	// result of DBSCAN algorithm
+	printResults();    
+
+	return 0;
 }
