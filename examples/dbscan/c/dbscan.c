@@ -1,8 +1,11 @@
+#include <sys/resource.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 
+// DBSCAN
 #define CORE_POINT 1
 #define BORDER_POINT 2
 
@@ -11,14 +14,18 @@
 #define NOISE -2
 #define FAILURE -3
 
-#define NumPoints 212
+#define MINIMUM_POINTS 1     	// minimum number of cluster
+#define EPSILON 10000.00	// distance for clustering, metre^2i
 
-#define MINIMUM_POINTS 4     // minimum number of cluster
-#define EPSILON (0.75*0.75)  // distance for clustering, metre^2i
+#define NumPoints 10
+
+// Haversine
+#define EARTH_RADIUS 6371
+#define TO_RADIAN (3.1415926536 / 180)
 
 
 typedef struct Point {
-	float x, y, z;  // 3D data
+	float lat, lon; // latitude & longitude
 	int clusterID;  // clustered ID
 }Point;
 
@@ -35,54 +42,74 @@ uint16_t clusterSeedsSize = 0;
 uint16_t clusterNeighboursSize = 0;
 
 
-void readBenchmarkData() {
-	FILE *stream;
-	stream = fopen ("benchmark.dat","ra");
+// Elapsed time checker
+static inline double timeCheckerCPU(void) {
+        struct rusage ru;
+        getrusage(RUSAGE_SELF, &ru);
+        return (double)ru.ru_utime.tv_sec + (double)ru.ru_utime.tv_usec / 1000000;
+}
 
-	uint32_t cluster, i = 0;
+// Function for reading benchmark file
+void readBenchmarkData() {
+	FILE *data;
+	data = fopen("worldcities.csv","ra");
+
+	uint32_t i = 0;
 
 	while (i < NumPoints) {
-		fscanf(stream, "%f,%f,%f,%d\n", &(m_points[i].x), &(m_points[i].y), &(m_points[i].z), &cluster);
+		fscanf(data, "%f,%f\n", &(m_points[i].lat), &(m_points[i].lon));
 		m_points[i].clusterID = UNCLASSIFIED;
 		i++;
 	}
 
-	fclose(stream);
+	fclose(data);
 }
 
+// Initializer
 void initialize(uint32_t minPts, float eps) {
 	m_minPoints = minPts;
 	m_epsilon = eps;
 	m_pointSize = NumPoints;
 }
 
-float calculateDistance(const Point pointCore, const Point pointTarget ) {
-	float dx = pow((pointCore.x - pointTarget.x), 2);
-	float dy = pow((pointCore.y - pointTarget.y), 2);
-	float dz = pow((pointCore.z - pointTarget.z), 2);
-	return dx + dy + dz;
+// Haversine
+float haversine(const Point pointCore, const Point pointTarget ) {
+	// Distance between latitudes and longitudes
+	float dlat = (pointTarget.lat-pointCore.lat)*TO_RADIAN;
+	float dlon = (pointTarget.lon-pointCore.lon)*TO_RADIAN;
+
+	// Convert to radians
+	float rad_lat_core = pointCore.lat*TO_RADIAN;
+	float rad_lat_target = pointTarget.lat*TO_RADIAN;
+
+	// Apply formula
+	float f = pow(sin(dlat/2),2) + pow(sin(dlon/2),2) * cos(rad_lat_core) * cos(rad_lat_target);
+	return asin(sqrt(f)) * 2 * EARTH_RADIUS;
 }
 
+// Border point finder for core point
 void calculateClusterSeeds(Point point) {
 	clusterSeedsSize = 0;
 	
 	for( int i = 0; i < NumPoints; i ++ ) {
-		if ( calculateDistance(point, m_points[i]) <= m_epsilon ) {
+		if ( haversine(point, m_points[i]) <= m_epsilon ) {
 			clusterSeeds[clusterSeedsSize++] = i;
 		}
 	}
 }
 
+// Border point finder for border point
 void calculateClusterNeighbours(Point point) {
 	clusterNeighboursSize = 0;
 
 	for( int i = 0; i < NumPoints; i ++ ) {
-		if ( calculateDistance(point, m_points[i]) <= m_epsilon ) {
+		if ( haversine(point, m_points[i]) <= m_epsilon ) {
 			clusterNeighbours[clusterNeighboursSize++] = i;
 		}
 	}
 }
 
+// Cluster expander
 int expandCluster(Point point, int clusterID) {    
 	calculateClusterSeeds(point);
 	
@@ -97,9 +124,8 @@ int expandCluster(Point point, int clusterID) {
 			
 		for( int i = 0; i < clusterSeedsSize; i ++ ) {
 			int pointBorder = clusterSeeds[i];
-			if ( m_points[pointBorder].x == point.x &&
-			     m_points[pointBorder].y == point.y &&
-			     m_points[pointBorder].z == point.z ) {
+			if ( m_points[pointBorder].lat == point.lat &&
+			     m_points[pointBorder].lon == point.lon ) {
 				continue;
 			} else {
 				calculateClusterNeighbours(m_points[pointBorder]);
@@ -122,6 +148,7 @@ int expandCluster(Point point, int clusterID) {
 	}
 }
 
+// DBSCAN main
 void run() {
 	int clusterID = 1;
 	for( int i = 0; i < NumPoints; i ++ ) {
@@ -131,31 +158,42 @@ void run() {
 	}
 }
 
+// Function for printing results
 void printResults() {
 	int i = 0;
 
 	printf("Number of points: %u\n"
-	       " x     y     z     cluster_id\n"
-	       "-----------------------------\n", NumPoints);
+	       " x     y     cluster_id\n"
+	       "-----------------------\n", NumPoints);
 
 	while (i < NumPoints) {
-		printf("%5.2lf %5.2lf %5.2lf: %d\n", m_points[i].x, m_points[i].y, m_points[i].z, m_points[i].clusterID);
+		printf("%5.2lf %5.2lf: %d\n", m_points[i].lat, m_points[i].lon, m_points[i].clusterID);
 		++i;
 	}
 }
 
 int main() {
 	// read point data
+	printf( "Read Benchmark File Start!\n" );
 	readBenchmarkData();
-	
+	printf( "Read Benchmark File Done!\n" );
+	printf( "\n" );
+
 	// Initialize	
 	initialize(MINIMUM_POINTS, EPSILON);
 
 	// main loop
+	printf( "DBSCAN Clustering for 44691 Cities Start!\n" );
+	double processStart = timeCheckerCPU();
 	run();
-	
+	double processFinish = timeCheckerCPU();
+	double processTime = processFinish - processStart;
+	printf( "DBSCAN Clustering for 44691 Cities Done!\n" );
+	printf( "\n" );
+
 	// result of DBSCAN algorithm
 	printResults();    
+	printf( "Elapsed Time (CPU): %.2f\n", processTime );
 
 	return 0;
 }
