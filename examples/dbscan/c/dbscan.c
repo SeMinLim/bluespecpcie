@@ -17,7 +17,7 @@
 #define MINIMUM_POINTS 1     	// minimum number of cluster
 #define EPSILON 10000.00	// distance for clustering, metre^2i
 
-#define NumPoints 10
+#define NUMPOINTS 10
 
 // Haversine
 #define EARTH_RADIUS 6371
@@ -30,13 +30,9 @@ typedef struct Point {
 }Point;
 
 
-Point m_points[NumPoints];
-int clusterSeeds[NumPoints];
-int clusterNeighbours[NumPoints];
-
-uint32_t m_pointSize = 0;
-uint32_t m_minPoints = 0;
-float m_epsilon = 0.00;
+Point m_points[NUMPOINTS];
+int clusterSeeds[NUMPOINTS];
+int clusterNeighbours[NUMPOINTS];
 
 uint16_t clusterSeedsSize = 0;
 uint16_t clusterNeighboursSize = 0;
@@ -50,26 +46,20 @@ static inline double timeCheckerCPU(void) {
 }
 
 // Function for reading benchmark file
-void readBenchmarkData() {
-	FILE *data;
-	data = fopen("worldcities.csv","ra");
+void readBenchmarkData(char* filename) {
+	FILE *data = fopen(filename, "rb");
+	if( data == NULL ) {
+		printf( "File not found: %s\n", filename );
+		exit(1);
+	}
 
-	uint32_t i = 0;
-
-	while (i < NumPoints) {
-		fscanf(data, "%f,%f\n", &(m_points[i].lat), &(m_points[i].lon));
+	for ( int i = 0; i < NUMPOINTS; i ++ ) {
+		fread(&m_points[i].lat, sizeof(float), 1, data);
+		fread(&m_points[i].lon, sizeof(float), 1, data);
 		m_points[i].clusterID = UNCLASSIFIED;
-		i++;
 	}
 
 	fclose(data);
-}
-
-// Initializer
-void initialize(uint32_t minPts, float eps) {
-	m_minPoints = minPts;
-	m_epsilon = eps;
-	m_pointSize = NumPoints;
 }
 
 // Haversine
@@ -91,8 +81,8 @@ float haversine(const Point pointCore, const Point pointTarget ) {
 void calculateClusterSeeds(Point point) {
 	clusterSeedsSize = 0;
 	
-	for( int i = 0; i < NumPoints; i ++ ) {
-		if ( haversine(point, m_points[i]) <= m_epsilon ) {
+	for( int i = 0; i < NUMPOINTS; i ++ ) {
+		if ( haversine(point, m_points[i]) <= EPSILON ) {
 			clusterSeeds[clusterSeedsSize++] = i;
 		}
 	}
@@ -102,8 +92,8 @@ void calculateClusterSeeds(Point point) {
 void calculateClusterNeighbours(Point point) {
 	clusterNeighboursSize = 0;
 
-	for( int i = 0; i < NumPoints; i ++ ) {
-		if ( haversine(point, m_points[i]) <= m_epsilon ) {
+	for( int i = 0; i < NUMPOINTS; i ++ ) {
+		if ( haversine(point, m_points[i]) <= EPSILON ) {
 			clusterNeighbours[clusterNeighboursSize++] = i;
 		}
 	}
@@ -113,7 +103,7 @@ void calculateClusterNeighbours(Point point) {
 int expandCluster(Point point, int clusterID) {    
 	calculateClusterSeeds(point);
 	
-	if ( clusterSeedsSize < m_minPoints ) {
+	if ( clusterSeedsSize < MINIMUM_POINTS ) {
 		point.clusterID = NOISE;
 		return FAILURE;
 	} else {
@@ -130,7 +120,7 @@ int expandCluster(Point point, int clusterID) {
 			} else {
 				calculateClusterNeighbours(m_points[pointBorder]);
 			
-				if ( clusterNeighboursSize >= m_minPoints ) {
+				if ( clusterNeighboursSize >= MINIMUM_POINTS ) {
 					for ( int j = 0; j < clusterNeighboursSize; j ++ ) {
 						int pointNeighbour = clusterNeighbours[j];
 						if ( m_points[pointNeighbour].clusterID == UNCLASSIFIED || 
@@ -151,7 +141,7 @@ int expandCluster(Point point, int clusterID) {
 // DBSCAN main
 void run() {
 	int clusterID = 1;
-	for( int i = 0; i < NumPoints; i ++ ) {
+	for( int i = 0; i < NUMPOINTS; i ++ ) {
 		if ( m_points[i].clusterID == UNCLASSIFIED ) {
 			if ( expandCluster(m_points[i], clusterID) != FAILURE ) clusterID += 1;
 		}
@@ -164,23 +154,22 @@ void printResults() {
 
 	printf("Number of points: %u\n"
 	       " x     y     cluster_id\n"
-	       "-----------------------\n", NumPoints);
+	       "-----------------------\n", NUMPOINTS);
 
-	while (i < NumPoints) {
+	while (i < NUMPOINTS) {
 		printf("%5.2lf %5.2lf: %d\n", m_points[i].lat, m_points[i].lon, m_points[i].clusterID);
 		++i;
 	}
 }
 
 int main() {
+	char benchmark_filename[] = "worldcities.bin";
+
 	// read point data
 	printf( "Read Benchmark File Start!\n" );
-	readBenchmarkData();
+	readBenchmarkData(benchmark_filename);
 	printf( "Read Benchmark File Done!\n" );
 	printf( "\n" );
-
-	// Initialize	
-	initialize(MINIMUM_POINTS, EPSILON);
 
 	// main loop
 	printf( "DBSCAN Clustering for 44691 Cities Start!\n" );
