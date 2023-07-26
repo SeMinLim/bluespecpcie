@@ -8,10 +8,6 @@
 #define TO_RADIAN (3.1415926536 / 180)
 
 
-float cities[44691][2];
-float result[44691];
-
-
 // Elapsed time checker
 static inline double timeCheckerCPU(void) {
         struct rusage ru;
@@ -20,18 +16,16 @@ static inline double timeCheckerCPU(void) {
 }
 
 // Function for reading benchmark file
-void readBenchmark() {
-	FILE *data;
-	data = fopen("worldcities.csv", "ra");
-
-	int i = 0;
-
-	while (i < 44691) {
-		fscanf(data, "%f,%f\n", &(cities[i][0]), &(cities[i][1]));
-		i++;
+void readfromfile(float* data, char* filename, size_t length) {
+	FILE* f_data = fopen(filename, "rb");
+	if (f_data == NULL ) {
+		printf("File not found: %s\n", filename);
+		exit(1);
 	}
 
-	fclose(data);
+	fread(data, sizeof(float), length, f_data);
+
+	fclose(f_data);
 }
 
 // Haversine formula
@@ -51,17 +45,23 @@ float haversine(float lat1, float lon1, float lat2, float lon2)
 }
 
 
-int main()
+int main(int argc, char **argv)
 {
-	int i = 0;
+	int r = 0;
+	size_t numCities = 44691;
+	size_t dimension = 2;
 
-	readBenchmark();
+	float* cities = (float*)malloc(sizeof(float)*numCities*dimension);
+	float* result = (float*)malloc(sizeof(float)*numCities);
+
+	// Read float numbers from file
+	readfromfile(&cities[0], argv[1], numCities*dimension);
 	printf( "Read Benchmark File Done!\n" );
-
+	printf( "Seoul: %f, %f\n", cities[16], cities[17] );
 	double processStart = timeCheckerCPU();
-	while ( i < 10 ) {
-		result[i] = haversine(cities[8][0], cities[8][1], cities[i][0], cities[i][1]);
-		i++;
+	for ( int i = 0; i < 20; i = i + 2 ) {
+		result[r] = haversine(cities[16], cities[17], cities[i], cities[i+1]);
+		r++;
 	}
 	double processFinish = timeCheckerCPU();
 	double processTime = processFinish - processStart;
