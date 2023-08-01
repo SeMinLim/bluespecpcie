@@ -6,18 +6,18 @@
 
 
 // DBSCAN
-#define CORE_POINT 1
-#define BORDER_POINT 2
+#define CORE_POINT 10
+#define BORDER_POINT 20
 
-#define SUCCESS 0
-#define UNCLASSIFIED -1
-#define NOISE -2
-#define FAILURE -3
+#define SUCCESS 3
+#define UNCLASSIFIED 2
+#define NOISE 1
+#define FAILURE 0
 
-#define MINIMUM_POINTS 1     	// minimum number of cluster
+#define MINIMUM_POINTS 2     	// minimum number of cluster
 #define EPSILON 10000.00	// distance for clustering, metre^2i
 
-#define NUMPOINTS 10
+#define NUMPOINTS 16
 
 // Haversine
 #define EARTH_RADIUS 6371
