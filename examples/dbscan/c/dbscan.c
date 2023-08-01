@@ -163,7 +163,7 @@ void printResults() {
 }
 
 int main() {
-	char benchmark_filename[] = "worldcities.bin";
+	char benchmark_filename[] = "../worldcities.bin";
 
 	// read point data
 	printf( "Read Benchmark File Start!\n" );
