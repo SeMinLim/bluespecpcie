@@ -11,22 +11,27 @@ import Trigonometric32::*;
 
 interface HaversineIfc;
 	method Action dataInToRadian(Bit#(32) d);
-	method Action dataInPointALat(Bit#(32) d);
-	method Action dataInPointALon(Bit#(32) d);
-	method Action dataInPointBLat(Bit#(32) d);
-	method Action dataInPointBLon(Bit#(32) d);
-	method Action dataInPointALatRad(Bit#(32) d);
-	method Action dataInPointBLatRad(Bit#(32) d);
+	method Action dataInPointA(Bit#(64) d);
+	method Action dataInPointB(Bit#(64) d);
 	method ActionValue#(Bit#(32)) resultOut;
 endinterface
 (* synthesize *)
 module mkHaversine(HaversineIfc);
 	Clock curClk <- exposeCurrentClock;
 	Reset curRst <- exposeCurrentReset;
+
+	// Cycle Counter
+	FIFOF#(Bit#(32)) cycleQ <- mkFIFOF;
+	Reg#(Bit#(32)) cycleCount <- mkReg(0);
+	Reg#(Bit#(32)) cycleStart <- mkReg(0);
+	Reg#(Bit#(32)) cycleEnd <- mkReg(0);
+	rule incCycleCount;
+		cycleCount <= cycleCount + 1;
+	endrule
 	//--------------------------------------------------------------------------------------------
 	// Get data from HwMain & Send result to HwMain
 	//--------------------------------------------------------------------------------------------
-	Reg#(Bit#(32)) toRadian <- mkReg(0);
+	Reg#(Maybe#(Bit#(32))) toRadian <- mkReg(tagged Invalid);
 	FIFO#(Bit#(32)) pointALat <- mkFIFO;
 	FIFO#(Bit#(32)) pointALon <- mkFIFO;
 	FIFO#(Bit#(32)) pointBLat <- mkFIFO;
@@ -34,9 +39,11 @@ module mkHaversine(HaversineIfc);
 	FIFO#(Bit#(32)) pointALatRad <- mkFIFO;
 	FIFO#(Bit#(32)) pointBLatRad <- mkFIFO;
 	FIFO#(Bit#(32)) resultQ <- mkFIFO;
+	Reg#(Bit#(32)) resultCnt <- mkReg(0);
 	//--------------------------------------------------------------------------------------------
 	// Haversine Formula
 	//--------------------------------------------------------------------------------------------
+	Vector#(2, FpPairIfc#(32)) toRadian_mult <- replicateM(mkFpMult32);
 	Vector#(2, FpPairIfc#(32)) distance_sub <- replicateM(mkFpSub32);
 	Vector#(2, FpPairIfc#(32)) distance_mult <- replicateM(mkFpMult32);
 	Vector#(2, FpPairIfc#(32)) formula_div <- replicateM(mkFpDiv32);
@@ -48,6 +55,16 @@ module mkHaversine(HaversineIfc);
 	Vector#(2, TrigonoIfc) formula_cos <- replicateM(mkTrigonoCos32);
 	TrigonoIfc formula_asin <- mkTrigonoAsin32;
 
+	// lat1 = lat1 * toRadian
+	// lat2 = lat2 * toRadian
+	rule toRadianLat1_mult;
+		toRadian_mult[0].deq;
+		pointALatRad.enq(toRadian_mult[0].first);
+	endrule
+	rule toRadianLat2_mult;
+		toRadian_mult[1].deq;
+		pointBLatRad.enq(toRadian_mult[1].first);
+	endrule
 	// dlat = (lat2 - lat1) * toRadian
 	// dlon = (lon2 - lon1) * toRadian
 	rule distanceLat_sub;
@@ -66,11 +83,11 @@ module mkHaversine(HaversineIfc);
 	endrule
 	rule distanceLat_mult;
 		distance_sub[0].deq;
-		distance_mult[0].enq(distance_sub[0].first, toRadian);
+		distance_mult[0].enq(distance_sub[0].first, fromMaybe(?,toRadian));
 	endrule
 	rule distanceLon_mult;
 		distance_sub[1].deq;
-		distance_mult[1].enq(distance_sub[1].first, toRadian);
+		distance_mult[1].enq(distance_sub[1].first, fromMaybe(?,toRadian));
 	endrule
 
 	// f = pow(sin(dlat/2),2) + pow(sin(dlon/2),2) * cos(lat1) * cos(lat2)
@@ -164,29 +181,27 @@ module mkHaversine(HaversineIfc);
 	rule formulaFinal_8;
 		formula_mult[5].deq;
 		resultQ.enq(formula_mult[5].first);
-		$display( "Computing Haversine Done" );
+		resultCnt <= resultCnt + 1;
+		$write("\033[1;33mCycle %1d -> \033[1;33m[Haversine]: \033[0m: Computation \033[1;32mdone!\033[0m[%1d]\n",
+			cycleCount,resultCnt);	
 	endrule
 
 	method Action dataInToRadian(Bit#(32) d);
-		toRadian <= d;
+		toRadian <= tagged Valid d;
 	endmethod
-	method Action dataInPointALat(Bit#(32) d);
-		pointALat.enq(d);
+	method Action dataInPointA(Bit#(64) d);
+		let lat = d[31:0];
+		let lon = d[63:32];
+		pointALat.enq(lat);
+		pointALon.enq(lon);
+		if ( isValid(toRadian) ) toRadian_mult[0].enq(lat, fromMaybe(?,toRadian));
 	endmethod
-	method Action dataInPointALon(Bit#(32) d);
-		pointALon.enq(d);
-	endmethod
-	method Action dataInPointBLat(Bit#(32) d);
-		pointBLat.enq(d);
-	endmethod
-	method Action dataInPointBLon(Bit#(32) d);
-		pointBLon.enq(d);
-	endmethod
-	method Action dataInPointALatRad(Bit#(32) d);
-		pointALatRad.enq(d);
-	endmethod
-	method Action dataInPointBLatRad(Bit#(32) d);
-		pointBLatRad.enq(d);
+	method Action dataInPointB(Bit#(64) d);
+		let lat = d[31:0];
+		let lon = d[63:32];
+		pointBLat.enq(lat);
+		pointBLon.enq(lon);
+		if ( isValid(toRadian) ) toRadian_mult[1].enq(lat, fromMaybe(?,toRadian));
 	endmethod
 	method ActionValue#(Bit#(32)) resultOut;
 		resultQ.deq;

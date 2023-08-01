@@ -10,6 +10,12 @@ import PcieImport::*;
 import PcieCtrl::*;
 import PcieCtrl_bsim::*;
 
+// DRAM stuff
+import DDR3Sim::*;
+import DDR3Controller::*;
+import DDR3Common::*;
+import DRAMController::*;
+
 import HwMain::*;
 
 
@@ -18,6 +24,8 @@ interface TopIfc;
 	interface PcieImportPins pcie_pins;
 	(* always_ready *)
 	method Bit#(4) led;
+	
+	interface DDR3_Pins_1GB pins_ddr3;
 endinterface
 
 (* no_default_clock, no_default_reset *)
@@ -41,11 +49,24 @@ module mkProjectTop #(
 
 	PcieCtrlIfc pcieCtrl <- mkPcieCtrl(pcie.user, clocked_by pcie.user_clk, reset_by pcie.user_reset);
 
-	HwMainIfc hwmain <- mkHwMain(pcieCtrl.user, clocked_by sys_clk_200mhz_buf, reset_by rst200);
+	Clock ddr_buf = sys_clk_200mhz_buf;
+	Reset ddr3ref_rst_n <- mkAsyncResetFromCR(4, ddr_buf, reset_by pcieCtrl.user.user_rst);
+
+	Clock user_clock = sys_clk_200mhz_buf;
+	Reset user_reset = rst200;
+
+	DDR3Common::DDR3_Configure ddr3_cfg = defaultValue;
+	ddr3_cfg.reads_in_flight = 32;   // adjust as needed
+	DDR3_Controller_1GB ddr3_ctrl <- mkDDR3Controller_1GB(ddr3_cfg, ddr_buf, clocked_by ddr_buf, reset_by ddr3ref_rst_n);
+	DRAMControllerIfc dramController <- mkDRAMController(ddr3_ctrl.user, clocked_by user_clock, reset_by user_reset);
+
+	HwMainIfc hwmain <- mkHwMain(pcieCtrl.user, dramController.user, clocked_by user_clock, reset_by user_reset);
 
 
 	// Interfaces ////
 	interface PcieImportPins pcie_pins = pcie.pins;
+
+	interface DDR3_Pins_1GB pins_ddr3 = ddr3_ctrl.ddr3;
 
 	method Bit#(4) led;
 		//return leddata;
@@ -58,5 +79,8 @@ module mkProjectTop_bsim (Empty);
 
 	PcieCtrlIfc pcieCtrl <- mkPcieCtrl_bsim;
 
-	HwMainIfc hwmain <- mkHwMain(pcieCtrl.user);
+	let ddr3_ctrl_user <- mkDDR3Simulator;
+	DRAMControllerIfc dramController <- mkDRAMController(ddr3_ctrl_user);
+
+	HwMainIfc hwmain <- mkHwMain(pcieCtrl.user, dramController.user);
 endmodule

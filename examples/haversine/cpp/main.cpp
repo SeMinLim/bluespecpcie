@@ -36,7 +36,6 @@ int main(int argc, char** argv) {
 
 	unsigned int d = pcie->readWord(0);
 	printf( "Magic: %x\n", d );
-	printf( "\n" );
 	fflush( stdout );
 
 	char cities_filename[] = "worldcities.bin";
@@ -44,30 +43,19 @@ int main(int argc, char** argv) {
 	uint32_t* cities_uint32 = (uint32_t*)malloc(sizeof(float)*NumCities*Dimension);
 
 	// Read benchmark file	
-	printf( "Reading Benchmark File Start!\n" );
 	readfromfile(&cities_float[0], cities_filename, NumCities*Dimension);
-	printf( "Reading Benchmark File Done!\n" );
-	printf( "\n" );
-	fflush( stdout );
 
 	// Change the type to uint32_t
-	printf( "Changing The Type From Float to Unsigned Int32 Start!\n" );
 	for ( int i = 0; i < NumCities*Dimension; i ++ ) {
 		cities_uint32[i] = *(uint32_t*)&cities_float[i];
 	}
-	printf( "Changing The Type From Float to Unsigned Int32 Done!\n" );
-	printf( "\n" );
-	fflush( stdout );
 
 	// Send data
-	printf( "Sending The Data Start!\n" );
-	pcie->userWriteWord(0, cities_uint32[16]);
-	pcie->userWriteWord(4, cities_uint32[17]);
-	pcie->userWriteWord(8, cities_uint32[16]);
-	pcie->userWriteWord(12, cities_uint32[17]);
-	printf( "Sending The Data Done!\n" );
-	printf( "\n" );
-	fflush( stdout );
+	pcie->userWriteWord(0, 0);
+	for ( int i = 0; i < 8; i ++ ) {
+		pcie->userWriteWord(4, cities_uint32[16]);
+		pcie->userWriteWord(4, cities_uint32[17]);
+	}
 
 	sleep(10);
 
