@@ -5,6 +5,13 @@
 #include <stdlib.h>
 
 
+// QuadTree
+#define LEAF_NODES 4
+#define BOTTOM_LEFT_X -56
+#define BOTTOM_LEFT_Y -180
+#define TOP_RIGHT_X 142
+#define TOP_RIGHT_Y 180
+
 // DBSCAN
 #define CORE_POINT 10
 #define BORDER_POINT 20
@@ -15,9 +22,9 @@
 #define FAILURE 0
 
 #define MINIMUM_POINTS 2     	// minimum number of cluster
-#define EPSILON 10000.00	// distance for clustering, metre^2i
+#define EPSILON 8000.00	// distance for clustering, metre^2i
 
-#define NUMPOINTS 16
+#define NUMPOINTS 44691
 
 // Haversine
 #define EARTH_RADIUS 6371
@@ -61,6 +68,8 @@ void readBenchmarkData(char* filename) {
 
 	fclose(data);
 }
+
+
 
 // Haversine
 float haversine(const Point pointCore, const Point pointTarget ) {
