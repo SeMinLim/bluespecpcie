@@ -118,39 +118,35 @@ void initialize(Point* data, int numPoints, Cluster* initial, Point* lowest, Poi
 
 // Quadtree
 void quadtree(Point* data, Cluster* quadrants, int parentIdx) {
-	Cluster* parent = &quadrants[parentIdx];
-	Cluster* child[4];
-	for ( int i = 0; i < 4; i ++ ) child[i] = &quadrants[4*parentIdx+1 + i];
-	
-	// Initialization for the new clusters
-	for ( int i = 0; i < 4; i ++ ) {
-		child[i]->center.quadID = 4*parentIdx+1 + i;
-		child[i]->center.clusterID = 4*parentIdx+1 + i;
-		child[i]->numPoints = 0;
-		child[i]->goDbscan = 1;
+	// Initialization for the new children clusters
+	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
+		quadrants[i].center.quadID = i;
+		quadrants[i].center.clusterID = i;
+		quadrants[i].numPoints = 0;
+		quadrants[i].goDbscan = 1;
 	}
 	
 	// Quadtree
-	for ( int i = parent->startIdx; i < parent->endIdx; i ++ ) {
-		if ( (data[i].lat < parent->center.lat) && (data[i].lon < parent->center.lon) ) {
+	for ( int i = quadrants[parentIdx].startIdx; i < quadrants[parentIdx].endIdx; i ++ ) {
+		if ( (data[i].lat < quadrants[parentIdx].center.lat) && (data[i].lon < quadrants[parentIdx].center.lon) ) {
 			data[i].quadID = 4*parentIdx+1;
-			child[0]->numPoints++;
-		} else if ( (data[i].lat >= parent->center.lat) && (data[i].lon < parent->center.lon) ) {
+			quadrants[4*parentIdx+1].numPoints++;
+		} else if ( (data[i].lat >= quadrants[parentIdx].center.lat) && (data[i].lon < quadrants[parentIdx].center.lon) ) {
 			data[i].quadID = 4*parentIdx+2;
-			child[1]->numPoints++;
-		} else if ( (data[i].lat < parent->center.lat) && (data[i].lon >= parent->center.lon) ) {
+			quadrants[4*parentIdx+2].numPoints++;
+		} else if ( (data[i].lat < quadrants[parentIdx].center.lat) && (data[i].lon >= quadrants[parentIdx].center.lon) ) {
 			data[i].quadID = 4*parentIdx+3;
-			child[2]->numPoints++;
-		} else if ( (data[i].lat >= parent->center.lat) && (data[i].lon >= parent->center.lon) ) {
+			quadrants[4*parentIdx+3].numPoints++;
+		} else if ( (data[i].lat >= quadrants[parentIdx].center.lat) && (data[i].lon >= quadrants[parentIdx].center.lon) ) {
 			data[i].quadID = 4*parentIdx+4;
-			child[3]->numPoints++;
+			quadrants[4*parentIdx+4].numPoints++;
 		}
 	}
 
 	// Data alignment
 	Point temp;
-	for ( int i = parent->startIdx; i < parent->endIdx; i ++ ) {
-		for ( int j = parent->startIdx; j < parent->endIdx - 1; j ++ ) {
+	for ( int i = quadrants[parentIdx].startIdx; i < quadrants[parentIdx].endIdx; i ++ ) {
+		for ( int j = quadrants[parentIdx].startIdx; j < quadrants[parentIdx].endIdx - 1; j ++ ) {
 			if ( data[j].quadID > data[j+1].quadID ) {
 				temp = data[j];
 				data[j] = data[j+1];
@@ -160,19 +156,19 @@ void quadtree(Point* data, Cluster* quadrants, int parentIdx) {
 	}
 
 	// Set the value for the new clusters
-	child[0]->startIdx = parent->startIdx;
-	child[0]->endIdx = child[0]->startIdx + child[0]->numPoints;
-	child[1]->startIdx = child[0]->endIdx;
-	child[1]->endIdx = child[1]->startIdx + child[1]->numPoints;
-	child[2]->startIdx = child[1]->endIdx;
-	child[2]->endIdx = child[2]->startIdx + child[2]->numPoints;
-	child[3]->startIdx = child[2]->endIdx;
-	child[3]->endIdx = child[3]->startIdx + child[3]->numPoints;
+	quadrants[4*parentIdx+1].startIdx = quadrants[parentIdx].startIdx;
+	quadrants[4*parentIdx+1].endIdx = quadrants[4*parentIdx+1].startIdx + quadrants[4*parentIdx+1].numPoints;
+	quadrants[4*parentIdx+2].startIdx = quadrants[4*parentIdx+1].endIdx;
+	quadrants[4*parentIdx+2].endIdx = quadrants[4*parentIdx+2].startIdx + quadrants[4*parentIdx+2].numPoints;
+	quadrants[4*parentIdx+3].startIdx = quadrants[4*parentIdx+2].endIdx;
+	quadrants[4*parentIdx+3].endIdx = quadrants[4*parentIdx+3].startIdx + quadrants[4*parentIdx+3].numPoints;
+	quadrants[4*parentIdx+4].startIdx = quadrants[4*parentIdx+3].endIdx;
+	quadrants[4*parentIdx+4].endIdx = quadrants[4*parentIdx+4].startIdx + quadrants[4*parentIdx+4].numPoints;
 
 	// Center mass of each quadrant
-	for ( int i = 0; i < 4; i ++ ) {
-		if ( child[i]->numPoints >= 1 ) findCenterMass(data, child[i]);
-		else child[i]->goDbscan = 0;
+	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
+		if ( quadrants[i].numPoints >= 1 ) findCenterMass(data, &quadrants[i]);
+		else quadrants[i].goDbscan = 0;
 	}
 	
 }
@@ -280,7 +276,7 @@ int main() {
 	// result of DBSCAN algorithm
 	printResults(cities, numCities);    
 	printf( "Elapsed Time (CPU): %.2f\n", processTime );
-	
+
 	free(cities);
 	free(quadrants);
 
