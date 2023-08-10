@@ -1,29 +1,31 @@
-/*
-*/
-
-import Clocks :: *;
+import Clocks::*;
 import ClockImport::*;
-import DefaultValue :: *;
-
-import PcieImport :: *;
-import PcieCtrl :: *;
-import PcieCtrl_bsim :: *;
-
-import Clocks       :: *;
+import DefaultValue::*;
 import FIFO::*;
+import Vector::*;
+import Connectable::*;
+
+// PCIe stuff
+import PcieImport::*;
+import PcieCtrl::*;
+import PcieCtrl_bsim::*;
+
+// DRAM stuff
+import DDR3Sim::*;
+import DDR3Controller::*;
+import DDR3Common::*;
+import DRAMController::*;
 
 import HwMain::*;
 
-//import Platform :: *;
-
-//import NullReset :: *;
-//import IlaImport :: *;
 
 interface TopIfc;
 	(* always_ready *)
 	interface PcieImportPins pcie_pins;
 	(* always_ready *)
 	method Bit#(4) led;
+	
+	interface DDR3_Pins_1GB pins_ddr3;
 endinterface
 
 (* no_default_clock, no_default_reset *)
@@ -38,7 +40,7 @@ module mkProjectTop #(
 	PcieImportIfc pcie <- mkPcieImport(pcie_clk_p, pcie_clk_n, pcie_rst_n, emcclk);
 	Clock pcie_clk_buf = pcie.sys_clk_o;
 	Reset pcie_rst_n_buf = pcie.sys_rst_n_o;
-	
+
 	ClockGenIfc clk_200mhz_import <- mkClockIBUFDSImport(sys_clk_p, sys_clk_n);
 	Clock sys_clk_200mhz = clk_200mhz_import.gen_clk;
 	ClockGenIfc sys_clk_200mhz_buf_import <- mkClockBUFGImport(clocked_by sys_clk_200mhz);
@@ -46,27 +48,25 @@ module mkProjectTop #(
 	Reset rst200 <- mkAsyncReset( 4, pcie_rst_n, sys_clk_200mhz_buf);
 
 	PcieCtrlIfc pcieCtrl <- mkPcieCtrl(pcie.user, clocked_by pcie.user_clk, reset_by pcie.user_reset);
-	/*
-	ClockGenerator7Params clk_params = defaultValue();
-	clk_params.clkin1_period     = 10.000;       // 100 MHz reference
-	clk_params.clkin_buffer      = False;       // necessary buffer is instanced above
-	clk_params.reset_stages      = 0;           // no sync on reset so input clock has pll as only load
-	clk_params.clkfbout_mult_f   = 10.000;       // 1000 MHz VCO
-	clk_params.clkout0_divide_f  = 4;          // 250MHz clock
-	clk_params.clkout1_divide    = 8;           // 125MHz clock
-	ClockGenerator7 clk_gen <- mkClockGenerator7(clk_params, clocked_by sys_clk_buf, reset_by sys_rst_n_buf);
-	Clock clk250 = clk_gen.clkout0;
-	Reset rst250 <- mkAsyncReset( 4, sys_rst_n_buf, clk250);
-	
-	Clock clk125 = clk_gen.clkout0;
-	Reset rst125 <- mkAsyncReset( 4, sys_rst_n_buf, clk125);
-	*/
-	HwMainIfc hwmain <- mkHwMain(pcieCtrl.user, clocked_by sys_clk_200mhz_buf, reset_by rst200);
 
-	//ReadOnly#(Bit#(4)) leddata <- mkNullCrossingWire(noClock, pcieCtrl.leds);
+	Clock ddr_buf = sys_clk_200mhz_buf;
+	Reset ddr3ref_rst_n <- mkAsyncResetFromCR(4, ddr_buf, reset_by pcieCtrl.user.user_rst);
+
+	Clock user_clock = sys_clk_200mhz_buf;
+	Reset user_reset = rst200;
+
+	DDR3Common::DDR3_Configure ddr3_cfg = defaultValue;
+	ddr3_cfg.reads_in_flight = 32;   // adjust as needed
+	DDR3_Controller_1GB ddr3_ctrl <- mkDDR3Controller_1GB(ddr3_cfg, ddr_buf, clocked_by ddr_buf, reset_by ddr3ref_rst_n);
+	DRAMControllerIfc dramController <- mkDRAMController(ddr3_ctrl.user, clocked_by user_clock, reset_by user_reset);
+
+	HwMainIfc hwmain <- mkHwMain(pcieCtrl.user, dramController.user, clocked_by user_clock, reset_by user_reset);
+
 
 	// Interfaces ////
 	interface PcieImportPins pcie_pins = pcie.pins;
+
+	interface DDR3_Pins_1GB pins_ddr3 = ddr3_ctrl.ddr3;
 
 	method Bit#(4) led;
 		//return leddata;
@@ -79,5 +79,8 @@ module mkProjectTop_bsim (Empty);
 
 	PcieCtrlIfc pcieCtrl <- mkPcieCtrl_bsim;
 
-	HwMainIfc hwmain <- mkHwMain(pcieCtrl.user);
+	let ddr3_ctrl_user <- mkDDR3Simulator;
+	DRAMControllerIfc dramController <- mkDRAMController(ddr3_ctrl_user);
+
+	HwMainIfc hwmain <- mkHwMain(pcieCtrl.user, dramController.user);
 endmodule
