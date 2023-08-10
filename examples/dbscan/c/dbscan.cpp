@@ -5,9 +5,6 @@
 #include <stdlib.h>
 
 
-// QuadTree
-#define LEAF_NODES 1
-
 // DBSCAN
 #define CORE_POINT 1
 #define BORDER_POINT 2
@@ -17,8 +14,8 @@
 #define NOISE -2
 #define FAILURE -3
 
-#define MINIMUM_POINTS 2     	// minimum number of cluster
-#define EPSILON 1000.00	// distance for clustering, metre^2i
+#define MINIMUM_POINTS 2
+#define EPSILON 8000.00
 
 #define NUMPOINTS 44691
 
@@ -40,13 +37,6 @@ int clusterNeighbours[NUMPOINTS];
 uint16_t clusterSeedsSize = 0;
 uint16_t clusterNeighboursSize = 0;
 
-float bottomLeftX = -56.00;
-float bottomLeftY = -180.00;
-float topRightX = 142.00;
-float topRightY = 180.00;
-float centerX = 43.00;
-float centerY = 0.00;
-int quadtreeIDX = 0;
 
 // Elapsed time checker
 static inline double timeCheckerCPU(void) {
@@ -70,49 +60,6 @@ void readBenchmarkData(char* filename) {
 	}
 
 	fclose(data);
-}
-
-// Quadtree
-void quadtree() {
-	// Quadtree
-	for ( int i = 0; i < NUMPOINTS; i ++ ) {
-		if ( m_points[i].lat < centerX ) {
-			if ( m_points[i].lon < centerY ) {
-				m_points[i].clusterID = 0;
-			} else {
-				m_points[i].clusterID = 1;
-			}
-		} else {
-			if ( m_points[i].lon < centerY ) {
-				m_points[i].clusterID = 2;
-			} else {
-				m_points[i].clusterID = 3;
-			}
-		}
-	}
-
-	// Sort
-	Point temp;
-	for ( int i = 0; i < NUMPOINTS; i ++ ) {
-		for ( int j = 0; j < NUMPOINTS - 1; j ++ ) {
-			if ( m_points[j].clusterID > m_points[j+1].clusterID ) {
-				temp.lat = m_points[j].lat;
-				temp.lon = m_points[j].lon;
-				temp.clusterID = m_points[j].clusterID;
-
-				m_points[j].lat = m_points[j+1].lat;
-				m_points[j].lon = m_points[j+1].lon;
-				m_points[j].clusterID = m_points[j+1].clusterID;
-
-				m_points[j+1].lat = temp.lat;
-				m_points[j+1].lon = temp.lon;
-				m_points[j+1].clusterID = temp.clusterID;
-			}
-		}
-	}
-
-	// Revert ClusterID
-	for ( int i = 0; i < NUMPOINTS; i ++ ) m_points[i].clusterID = UNCLASSIFIED;
 }
 
 // Haversine
@@ -219,24 +166,15 @@ int main() {
 	char benchmark_filename[] = "../worldcities.bin";
 
 	// read point data
-	printf( "Read Benchmark File Start!\n" );
 	readBenchmarkData(benchmark_filename);
-	printf( "Read Benchmark File Done!\n" );
-	printf( "\n" );
-
-	// quadtree
-	printf( "Quadtree-based Sorting Start!\n" );
-	quadtree();
-	printf( "Quadtree-based Sorting Done!\n" );
-	printf( "\n" );
 
 	// main loop
-	printf( "DBSCAN Clustering for 44691 Cities Start!\n" );
+	printf( "Pure DBSCAN Clustering for 44691 Cities Start!\n" );
 	double processStart = timeCheckerCPU();
 	run();
 	double processFinish = timeCheckerCPU();
 	double processTime = processFinish - processStart;
-	printf( "DBSCAN Clustering for 44691 Cities Done!\n" );
+	printf( "Pure DBSCAN Clustering for 44691 Cities Done!\n" );
 	printf( "\n" );
 
 	// result of DBSCAN algorithm
