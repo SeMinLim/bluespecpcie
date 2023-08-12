@@ -65,11 +65,11 @@ int main(int argc, char **argv)
 	}
 	double processFinish = timeCheckerCPU();
 	double processTime = processFinish - processStart;
-	printf( "Elapsed Time (CPU): %.2f\n", processTime );
+	printf( "Elapsed Time (CPU): %.8f\n", processTime );
 	
 	// Seoul vs Seoul
 	// The result is gonna be 0km and mi
 	printf("dist: %.4f km (%.4f mi.)\n", result[8], (result[8]/1.609344));
-
+	printf( "%d\n", r );
 	return 0;
 }
