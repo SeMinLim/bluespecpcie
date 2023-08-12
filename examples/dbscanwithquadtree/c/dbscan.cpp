@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 
 
 // DBSCAN
@@ -24,15 +25,13 @@
 
 typedef struct Point {
 	float lat, lon; // latitude & longitude
-	int quadID; 	// Quadrant Index
-	int clusterID;  // clustered ID
+	int clusterID; 	// Cluster ID
 }Point;
 
 typedef struct Cluster {
+	std::vector<Point> cities;
 	Point center;
-	int startIdx;
-	int endIdx;
-	int numPoints;
+	int quadID;
 	int goDbscan;
 }Cluster;
 
@@ -45,7 +44,7 @@ static inline double timeCheckerCPU(void) {
 }
 
 // Function for reading benchmark file
-void readBenchmarkData(Point* data, char* filename, int length) {
+void readBenchmarkData(Cluster* quadrants, char* filename, int length) {
 	FILE *f_data = fopen(filename, "rb");
 	if( f_data == NULL ) {
 		printf( "File not found: %s\n", filename );
@@ -53,9 +52,10 @@ void readBenchmarkData(Point* data, char* filename, int length) {
 	}
 
 	for ( int i = 0; i < length; i ++ ) {
-		fread(&data[i].lat, sizeof(float), 1, f_data);
-		fread(&data[i].lon, sizeof(float), 1, f_data);
-		data[i].clusterID = UNCLASSIFIED;
+		int numPoints = quadrants[0].cities.size();
+		quadrants[0].cities.resize(numPoints+1);
+		fread(&quadrants[0].cities[i].lat, sizeof(float), 1, f_data);
+		fread(&quadrants[0].cities[i].lon, sizeof(float), 1, f_data);
 	}
 
 	fclose(f_data);
@@ -77,114 +77,95 @@ float haversine(const Point pointCore, const Point pointTarget ) {
 }
 
 // Function for finding center mass value
-void findCenterMass(Point* data, Cluster* cluster) {
+void findCenterMass(Cluster* quadrants) {
 	// Center Mass
 	float totalX = 0.00;
 	float totalY = 0.00;
-	for ( int i = cluster->startIdx; i < cluster->endIdx; i ++ ) {
-		totalX = totalX + data[i].lat;
-		totalY = totalY + data[i].lon;
+	for ( int i = 0; i < (int)quadrants->cities.size(); i ++ ) {
+		totalX = totalX + quadrants->cities[i].lat;
+		totalY = totalY + quadrants->cities[i].lon;
 	}
-	cluster->center.lat = totalX / cluster->numPoints;
-	cluster->center.lon = totalY / cluster->numPoints;
+	quadrants->center.lat = totalX / (float)quadrants->cities.size();
+	quadrants->center.lon = totalY / (float)quadrants->cities.size();
 }
 
 // Function for initialization
-void initialize(Point* data, int numPoints, Cluster* initial, Point* lowest, Point* highest ) {
+void initialize(Cluster* quadrants, Point* lowest, Point* highest ) {
 	// Min and Max
-	for ( int i = 0; i < numPoints; i ++ ) {
+	for ( int i = 0; i < (int)quadrants[0].cities.size(); i ++ ) {
 		if ( i == 0 ) {
-			lowest->lat = data[i].lat;
-			lowest->lon = data[i].lon;
-			highest->lat = data[i].lat;
-			highest->lon = data[i].lon;
+			lowest->lat = quadrants[0].cities[i].lat;
+			lowest->lon = quadrants[0].cities[i].lon;
+			highest->lat = quadrants[0].cities[i].lat;
+			highest->lon = quadrants[0].cities[i].lon;
 		} else {
-			if ( lowest->lat > data[i].lat ) lowest->lat = data[i].lat;
-			if ( lowest->lon > data[i].lon ) lowest->lon = data[i].lon;
-			if ( highest->lat < data[i].lat ) highest->lat = data[i].lat;
-			if ( highest->lon < data[i].lon ) highest->lon = data[i].lon;
+			if ( lowest->lat > quadrants[0].cities[i].lat ) lowest->lat = quadrants[0].cities[i].lat;
+			if ( lowest->lon > quadrants[0].cities[i].lon ) lowest->lon = quadrants[0].cities[i].lon;
+			if ( highest->lat < quadrants[0].cities[i].lat ) highest->lat = quadrants[0].cities[i].lat;
+			if ( highest->lon < quadrants[0].cities[i].lon ) highest->lon = quadrants[0].cities[i].lon;
 		}
 	}
 
 	// Initial cluster
-	initial->startIdx = 0;
-	initial->endIdx = numPoints;
-	initial->numPoints = numPoints;
-	initial->goDbscan = 1;
+	quadrants[0].goDbscan = 1;
 
 	// Center mass of dataset
-	findCenterMass(data, initial);
+	findCenterMass(&quadrants[0]);
 }
 
 // Quadtree
-void quadtree(Point* data, Cluster* quadrants, int parentIdx) {
-	// Initialization for the new children clusters
+void quadtree(Cluster* quadrants, int parentIdx) {
+	// Initialization for the new children quadrants
 	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
-		quadrants[i].center.quadID = i;
-		quadrants[i].center.clusterID = i;
-		quadrants[i].numPoints = 0;
+		quadrants[i].quadID = i;
 		quadrants[i].goDbscan = 1;
 	}
 	
 	// Quadtree
-	for ( int i = quadrants[parentIdx].startIdx; i < quadrants[parentIdx].endIdx; i ++ ) {
-		if ( (data[i].lat < quadrants[parentIdx].center.lat) && (data[i].lon < quadrants[parentIdx].center.lon) ) {
-			data[i].quadID = 4*parentIdx+1;
-			quadrants[4*parentIdx+1].numPoints++;
-		} else if ( (data[i].lat >= quadrants[parentIdx].center.lat) && (data[i].lon < quadrants[parentIdx].center.lon) ) {
-			data[i].quadID = 4*parentIdx+2;
-			quadrants[4*parentIdx+2].numPoints++;
-		} else if ( (data[i].lat < quadrants[parentIdx].center.lat) && (data[i].lon >= quadrants[parentIdx].center.lon) ) {
-			data[i].quadID = 4*parentIdx+3;
-			quadrants[4*parentIdx+3].numPoints++;
-		} else if ( (data[i].lat >= quadrants[parentIdx].center.lat) && (data[i].lon >= quadrants[parentIdx].center.lon) ) {
-			data[i].quadID = 4*parentIdx+4;
-			quadrants[4*parentIdx+4].numPoints++;
+	for ( int i = 0; i < (int)quadrants[parentIdx].cities.size(); i ++ ) {
+		if ( (quadrants[parentIdx].cities[i].lat < quadrants[parentIdx].center.lat) && 
+		     (quadrants[parentIdx].cities[i].lon < quadrants[parentIdx].center.lon) ) {
+			int numPoints = quadrants[4*parentIdx+1].cities.size();
+			quadrants[4*parentIdx+1].cities.resize(numPoints+1);
+			quadrants[4*parentIdx+1].cities[numPoints] = quadrants[parentIdx].cities[i];
+		} else if ( (quadrants[parentIdx].cities[i].lat >= quadrants[parentIdx].center.lat) && 
+			    (quadrants[parentIdx].cities[i].lon < quadrants[parentIdx].center.lon) ) {
+			int numPoints = quadrants[4*parentIdx+2].cities.size();
+			quadrants[4*parentIdx+2].cities.resize(numPoints+1);
+			quadrants[4*parentIdx+2].cities[numPoints] = quadrants[parentIdx].cities[i];
+		} else if ( (quadrants[parentIdx].cities[i].lat < quadrants[parentIdx].center.lat) && 
+			    (quadrants[parentIdx].cities[i].lon >= quadrants[parentIdx].center.lon) ) {
+			int numPoints = quadrants[4*parentIdx+3].cities.size();
+			quadrants[4*parentIdx+3].cities.resize(numPoints+1);
+			quadrants[4*parentIdx+3].cities[numPoints] = quadrants[parentIdx].cities[i];
+		} else if ( (quadrants[parentIdx].cities[i].lat >= quadrants[parentIdx].center.lat) && 
+			    (quadrants[parentIdx].cities[i].lon >= quadrants[parentIdx].center.lon) ) {
+			int numPoints = quadrants[4*parentIdx+4].cities.size();
+			quadrants[4*parentIdx+4].cities.resize(numPoints+1);
+			quadrants[4*parentIdx+4].cities[numPoints] = quadrants[parentIdx].cities[i];
 		}
 	}
-
-	// Data alignment
-	Point temp;
-	for ( int i = quadrants[parentIdx].startIdx; i < quadrants[parentIdx].endIdx; i ++ ) {
-		for ( int j = quadrants[parentIdx].startIdx; j < quadrants[parentIdx].endIdx - 1; j ++ ) {
-			if ( data[j].quadID > data[j+1].quadID ) {
-				temp = data[j];
-				data[j] = data[j+1];
-				data[j+1] = temp;
-			}
-		}
-	}
-
-	// Set the value for the new clusters
-	quadrants[4*parentIdx+1].startIdx = quadrants[parentIdx].startIdx;
-	quadrants[4*parentIdx+1].endIdx = quadrants[4*parentIdx+1].startIdx + quadrants[4*parentIdx+1].numPoints;
-	quadrants[4*parentIdx+2].startIdx = quadrants[4*parentIdx+1].endIdx;
-	quadrants[4*parentIdx+2].endIdx = quadrants[4*parentIdx+2].startIdx + quadrants[4*parentIdx+2].numPoints;
-	quadrants[4*parentIdx+3].startIdx = quadrants[4*parentIdx+2].endIdx;
-	quadrants[4*parentIdx+3].endIdx = quadrants[4*parentIdx+3].startIdx + quadrants[4*parentIdx+3].numPoints;
-	quadrants[4*parentIdx+4].startIdx = quadrants[4*parentIdx+3].endIdx;
-	quadrants[4*parentIdx+4].endIdx = quadrants[4*parentIdx+4].startIdx + quadrants[4*parentIdx+4].numPoints;
 
 	// Center mass of each quadrant
 	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
-		if ( quadrants[i].numPoints >= 1 ) findCenterMass(data, &quadrants[i]);
+		if ( quadrants[i].cities.size() >= 1 ) findCenterMass(&quadrants[i]);
 		else quadrants[i].goDbscan = 0;
 	}
 	
 }
 
-int dbscanQuadrants(Point* data, Cluster* child, int parentIdx) {
+int dbscanQuadrants(Cluster* quadrants, int parentIdx) {
 	int cnt = 0;
 
 	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
-		if ( child[i].goDbscan != 0 ) {
+		if ( quadrants[i].goDbscan != 0 ) {
 			for ( int j = i + 1; j < 4*parentIdx+5; j ++ ) {
-				if ( child[j].goDbscan != 0 ) {
-					if ( haversine(child[i].center, child[j].center) <= EPSILON ) {
-						if ( child[j].center.quadID > child[i].center.quadID ) {
-							child[j].center.quadID = child[i].center.quadID;
+				if ( quadrants[j].goDbscan != 0 ) {
+					if ( haversine(quadrants[i].center, quadrants[j].center) <= EPSILON ) {
+						if ( quadrants[j].quadID > quadrants[i].quadID ) {
+							quadrants[j].quadID = quadrants[i].quadID;
 						} else {
-							child[i].center.quadID = child[j].center.quadID;
+							quadrants[i].quadID = quadrants[j].quadID;
 						}
 						cnt++;
 					}
@@ -196,55 +177,62 @@ int dbscanQuadrants(Point* data, Cluster* child, int parentIdx) {
 	return cnt;
 }
 
-void dbscanQuadtree(Point* data, Cluster* quadrants) {
+void dbscanQuadtree(Cluster* quadrants) {
 	int clusterID = 1;
 	int parentIdx = 0;
 	int stopCondition = 3;
 	while(1) {
 		// Quadtree first
-		quadtree(data, quadrants, parentIdx); 	
+		//double processStart = timeCheckerCPU();
+		quadtree(quadrants, parentIdx); 	
 
 		// And then DBSCAN for the quadrants
-		int cnt = dbscanQuadrants(data, quadrants, parentIdx);
+		//double processStart = timeCheckerCPU();
+		int cnt = dbscanQuadrants(quadrants, parentIdx);
 
 		// Stop or Go
 		if ( cnt == stopCondition ) {
 			// Set the clusterID & Filter the noise
 			for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
-				if ( quadrants[i].center.quadID == quadrants[i].center.clusterID ) {
-					for ( int j = quadrants[i].startIdx; j < quadrants[i].endIdx; j ++ ) {
-						if ( haversine(quadrants[i].center, data[j]) <= EPSILON ) {
-							data[j].clusterID = clusterID;
-						} else data[j].clusterID = NOISE;
+				if ( quadrants[i].quadID == i ) {
+					for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
+						if ( haversine(quadrants[i].center, quadrants[i].cities[j]) <= EPSILON ) {
+							quadrants[i].cities[j].clusterID = clusterID;
+						} else quadrants[i].cities[j].clusterID = NOISE;
 					}
 					quadrants[i].center.clusterID = clusterID;
 					clusterID++;
 				} else {
-					int idx = quadrants[i].center.quadID;
+					int idx = quadrants[i].quadID;
 					int clusterIdx = quadrants[idx].center.clusterID;
-					for ( int j = quadrants[i].startIdx; j < quadrants[i].endIdx; j ++ ) {
-						if ( haversine(quadrants[i].center, data[j]) <= EPSILON ) {
-							data[j].clusterID = clusterIdx;
-						} else data[j].clusterID = NOISE;
+					for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
+						if ( haversine(quadrants[i].center, quadrants[i].cities[j]) <= EPSILON ) {
+							quadrants[i].cities[j].clusterID = clusterIdx;
+						} else quadrants[i].cities[j].clusterID = NOISE;
 					}
+					quadrants[i].center.clusterID = clusterIdx;
 				}
 			}
+			//double processFinish = timeCheckerCPU();
+			//double processTime = processFinish - processStart;
+			//printf( "Elapsed Time for Haversine (CPU): %.4f\n", processTime );
 			break;
 		}
 	}
 }
 
 // Function for printing results
-void printResults(Point* data, int numPoints) {
-	int i = 0;
+void printResults(Cluster* quadrants) {
+	int numPoints = quadrants[0].cities.size();
 
-	printf("Number of points: %u\n"
+	printf("Number of points: %d\n"
 	       " x     y     cluster_id\n"
 	       "-----------------------\n", numPoints);
 
-	while (i < numPoints) {
-		printf("%f %f: %d\n", data[i].lat, data[i].lon, data[i].clusterID);
-		++i;
+	for ( int i = 1; i < 5; i ++ ) {
+		for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
+			printf("%f, %f: %d\n", quadrants[i].cities[j].lat, quadrants[i].cities[j].lon, quadrants[i].cities[j].clusterID);
+		}
 	}
 }
 
@@ -252,32 +240,30 @@ void printResults(Point* data, int numPoints) {
 int main() {
 	int numCities = 44691;
 
-	Point* cities = (Point*)malloc(sizeof(Point)*numCities);
 	Cluster* quadrants = (Cluster*)malloc(sizeof(Cluster)*numCities);
 
 	// Read point data
 	char benchmark_filename[] = "../worldcities.bin";
-	readBenchmarkData(cities, benchmark_filename, numCities);
+	readBenchmarkData(quadrants, benchmark_filename, numCities);
 
 	// Initialize
 	Point lowest, highest;
-	initialize(cities, numCities, &quadrants[0], &lowest, &highest);
+	initialize(quadrants, &lowest, &highest);
 	
 	// DBSCAN with Quadtree
 	printf( "Quadtree-based DBSCAN Clustering for 44691 Cities Start!\n" );
 	double processStart = timeCheckerCPU();
-	dbscanQuadtree(cities, quadrants);
+	dbscanQuadtree(quadrants);
 	double processFinish = timeCheckerCPU();
 	double processTime = processFinish - processStart;
 	printf( "Quadtree-based DBSCAN Clustering for 44691 Cities Done!\n" );
 	printf( "\n" );
 	fflush( stdout );
-	
-	// result of DBSCAN algorithm
-	printResults(cities, numCities);    
-	printf( "Elapsed Time (CPU): %.2f\n", processTime );
 
-	free(cities);
+	// result of DBSCAN algorithm
+	printResults(quadrants);
+	printf( "Elapsed Time (CPU): %.4f\n", processTime );
+
 	free(quadrants);
 
 	return 0;
