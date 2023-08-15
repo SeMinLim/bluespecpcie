@@ -33,6 +33,7 @@ typedef struct Cluster {
 	Point center;
 	int quadID;
 	int goDbscan;
+	int goQuadtree;
 }Cluster;
 
 
@@ -44,7 +45,7 @@ static inline double timeCheckerCPU(void) {
 }
 
 // Function for reading benchmark file
-void readBenchmarkData(Cluster* quadrants, char* filename, int length) {
+void readBenchmarkData(std::vector<Cluster> &quadrants, char* filename, int length) {
 	FILE *f_data = fopen(filename, "rb");
 	if( f_data == NULL ) {
 		printf( "File not found: %s\n", filename );
@@ -56,6 +57,7 @@ void readBenchmarkData(Cluster* quadrants, char* filename, int length) {
 		quadrants[0].cities.resize(numPoints+1);
 		fread(&quadrants[0].cities[i].lat, sizeof(float), 1, f_data);
 		fread(&quadrants[0].cities[i].lon, sizeof(float), 1, f_data);
+		quadrants[0].cities[i].clusterID = UNCLASSIFIED;
 	}
 
 	fclose(f_data);
@@ -90,7 +92,7 @@ void findCenterMass(Cluster* quadrants) {
 }
 
 // Function for initialization
-void initialize(Cluster* quadrants, Point* lowest, Point* highest ) {
+void initialize(std::vector<Cluster> &quadrants, Point* lowest, Point* highest ) {
 	// Min and Max
 	for ( int i = 0; i < (int)quadrants[0].cities.size(); i ++ ) {
 		if ( i == 0 ) {
@@ -114,11 +116,12 @@ void initialize(Cluster* quadrants, Point* lowest, Point* highest ) {
 }
 
 // Quadtree
-void quadtree(Cluster* quadrants, int parentIdx) {
+void quadtree(std::vector<Cluster> &quadrants, int parentIdx) {
 	// Initialization for the new children quadrants
 	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
 		quadrants[i].quadID = i;
 		quadrants[i].goDbscan = 1;
+		quadrants[i].goQuadtree = 1;
 	}
 	
 	// Quadtree
@@ -154,7 +157,7 @@ void quadtree(Cluster* quadrants, int parentIdx) {
 	
 }
 
-int dbscanQuadrants(Cluster* quadrants, int parentIdx) {
+int dbscanQuadrants(std::vector<Cluster> &quadrants, int parentIdx) {
 	int cnt = 0;
 
 	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
@@ -167,6 +170,8 @@ int dbscanQuadrants(Cluster* quadrants, int parentIdx) {
 						} else {
 							quadrants[i].quadID = quadrants[j].quadID;
 						}
+						quadrants[i].goQuadtree = 0;
+						quadrants[j].goQuadtree = 0;
 						cnt++;
 					}
 				}
@@ -177,17 +182,15 @@ int dbscanQuadrants(Cluster* quadrants, int parentIdx) {
 	return cnt;
 }
 
-void dbscanQuadtree(Cluster* quadrants) {
+void dbscanQuadtree(std::vector<Cluster> &quadrants) {
 	int clusterID = 1;
 	int parentIdx = 0;
 	int stopCondition = 3;
 	while(1) {
 		// Quadtree first
-		//double processStart = timeCheckerCPU();
 		quadtree(quadrants, parentIdx); 	
 
 		// And then DBSCAN for the quadrants
-		//double processStart = timeCheckerCPU();
 		int cnt = dbscanQuadrants(quadrants, parentIdx);
 
 		// Stop or Go
@@ -198,7 +201,28 @@ void dbscanQuadtree(Cluster* quadrants) {
 					for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
 						if ( haversine(quadrants[i].center, quadrants[i].cities[j]) <= EPSILON ) {
 							quadrants[i].cities[j].clusterID = clusterID;
-						} else quadrants[i].cities[j].clusterID = NOISE;
+						} else {
+							int cnt = 0;
+							for ( int k = 4*parentIdx+1; k < 4*parentIdx+5; k ++ ) {
+								if ( k != i ) {
+									if ( haversine(quadrants[k].center, quadrants[i].cities[j]) 
+											<= EPSILON ) {
+										int idx = quadrants[k].quadID;
+										int clusterIdx = quadrants[idx].center.clusterID;
+										if ( clusterIdx != UNCLASSIFIED ) {
+											quadrants[i].cities[j].clusterID = clusterIdx;
+										} else {
+											quadrants[i].cities.erase(quadrants[i].cities.begin()
+														  + j);
+											quadrants[k].cities.push_back(quadrants[i].cities[j]);
+										}
+										break;
+									} else cnt++;
+								}
+							}
+
+							if ( cnt == 3 ) quadrants[i].cities[j].clusterID = NOISE;
+						}
 					}
 					quadrants[i].center.clusterID = clusterID;
 					clusterID++;
@@ -208,30 +232,51 @@ void dbscanQuadtree(Cluster* quadrants) {
 					for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
 						if ( haversine(quadrants[i].center, quadrants[i].cities[j]) <= EPSILON ) {
 							quadrants[i].cities[j].clusterID = clusterIdx;
-						} else quadrants[i].cities[j].clusterID = NOISE;
+						} else {
+							int cnt = 0;
+							for ( int k = 4*parentIdx+1; k < 4*parentIdx+5; k ++ ) {
+								if ( k != i ) {
+									if ( haversine(quadrants[k].center, quadrants[i].cities[j]) 
+											<= EPSILON ) {
+										int idx = quadrants[k].quadID;
+										int clusterIdx = quadrants[idx].center.clusterID;
+										if ( clusterIdx != UNCLASSIFIED ) {
+											quadrants[i].cities[j].clusterID = clusterIdx;
+										} else {
+											quadrants[i].cities.erase(quadrants[i].cities.begin()
+														  + j);
+											quadrants[k].cities.push_back(quadrants[i].cities[j]);
+										}
+										break;
+									} else cnt++;
+								}
+							}
+
+							if ( cnt == 3 ) quadrants[i].cities[j].clusterID = NOISE;
+						}
 					}
 					quadrants[i].center.clusterID = clusterIdx;
 				}
 			}
-			//double processFinish = timeCheckerCPU();
-			//double processTime = processFinish - processStart;
-			//printf( "Elapsed Time for Haversine (CPU): %.4f\n", processTime );
 			break;
 		}
 	}
 }
 
 // Function for printing results
-void printResults(Cluster* quadrants) {
+void printResults(std::vector<Cluster> &quadrants) {
 	int numPoints = quadrants[0].cities.size();
 
 	printf("Number of points: %d\n"
 	       " x     y     cluster_id\n"
 	       "-----------------------\n", numPoints);
 
-	for ( int i = 1; i < 5; i ++ ) {
-		for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
-			printf("%f, %f: %d\n", quadrants[i].cities[j].lat, quadrants[i].cities[j].lon, quadrants[i].cities[j].clusterID);
+	for ( int i = 1; i < (int)quadrants.size(); i ++ ) {
+		if ( quadrants[i].goQuadtree == 0 ) {
+			for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
+				printf("%f, %f: %d\n", quadrants[i].cities[j].lat, quadrants[i].cities[j].lon, 
+						       quadrants[i].cities[j].clusterID);
+			}
 		}
 	}
 }
@@ -240,7 +285,7 @@ void printResults(Cluster* quadrants) {
 int main() {
 	int numCities = 44691;
 
-	Cluster* quadrants = (Cluster*)malloc(sizeof(Cluster)*numCities);
+	std::vector<Cluster> quadrants(5);
 
 	// Read point data
 	char benchmark_filename[] = "../worldcities.bin";
@@ -263,8 +308,6 @@ int main() {
 	// result of DBSCAN algorithm
 	printResults(quadrants);
 	printf( "Elapsed Time (CPU): %.4f\n", processTime );
-
-	free(quadrants);
 
 	return 0;
 }
