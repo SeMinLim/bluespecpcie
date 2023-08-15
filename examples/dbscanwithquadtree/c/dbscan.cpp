@@ -182,6 +182,30 @@ int dbscanQuadrants(std::vector<Cluster> &quadrants, int parentIdx) {
 	return cnt;
 }
 
+void collisionDetection(std::vector<Cluster> &quadrants, int quadID, int cityIdx, int parentIdx) {
+	int cnt = 0;
+	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
+		if ( i != quadID ) {
+			if ( haversine(quadrants[i].center, quadrants[quadID].cities[cityIdx]) <= EPSILON ) {
+				int idx = quadrants[i].quadID;
+				int clusterIdx = quadrants[idx].center.clusterID;
+				if ( clusterIdx != UNCLASSIFIED ) {
+					quadrants[quadID].cities[cityIdx].clusterID = clusterIdx;
+				} else {
+					quadrants[quadID].cities.erase(quadrants[quadID].cities.begin() + cityIdx);
+					quadrants[i].cities.push_back(quadrants[quadID].cities[cityIdx]);
+				}
+				break;
+			} else cnt++;
+		}
+	}
+
+	if ( cnt == 3 ) {
+		quadrants[quadID].cities[cityIdx].clusterID = NOISE;
+		noise++;
+	}
+}
+
 void dbscanQuadtree(std::vector<Cluster> &quadrants) {
 	int clusterID = 1;
 	int parentIdx = 0;
@@ -201,28 +225,7 @@ void dbscanQuadtree(std::vector<Cluster> &quadrants) {
 					for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
 						if ( haversine(quadrants[i].center, quadrants[i].cities[j]) <= EPSILON ) {
 							quadrants[i].cities[j].clusterID = clusterID;
-						} else {
-							int cnt = 0;
-							for ( int k = 4*parentIdx+1; k < 4*parentIdx+5; k ++ ) {
-								if ( k != i ) {
-									if ( haversine(quadrants[k].center, quadrants[i].cities[j]) 
-											<= EPSILON ) {
-										int idx = quadrants[k].quadID;
-										int clusterIdx = quadrants[idx].center.clusterID;
-										if ( clusterIdx != UNCLASSIFIED ) {
-											quadrants[i].cities[j].clusterID = clusterIdx;
-										} else {
-											quadrants[i].cities.erase(quadrants[i].cities.begin()
-														  + j);
-											quadrants[k].cities.push_back(quadrants[i].cities[j]);
-										}
-										break;
-									} else cnt++;
-								}
-							}
-
-							if ( cnt == 3 ) quadrants[i].cities[j].clusterID = NOISE;
-						}
+						} else collisionDetection(quadrants, i, j, parentIdx);
 					}
 					quadrants[i].center.clusterID = clusterID;
 					clusterID++;
@@ -232,28 +235,7 @@ void dbscanQuadtree(std::vector<Cluster> &quadrants) {
 					for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
 						if ( haversine(quadrants[i].center, quadrants[i].cities[j]) <= EPSILON ) {
 							quadrants[i].cities[j].clusterID = clusterIdx;
-						} else {
-							int cnt = 0;
-							for ( int k = 4*parentIdx+1; k < 4*parentIdx+5; k ++ ) {
-								if ( k != i ) {
-									if ( haversine(quadrants[k].center, quadrants[i].cities[j]) 
-											<= EPSILON ) {
-										int idx = quadrants[k].quadID;
-										int clusterIdx = quadrants[idx].center.clusterID;
-										if ( clusterIdx != UNCLASSIFIED ) {
-											quadrants[i].cities[j].clusterID = clusterIdx;
-										} else {
-											quadrants[i].cities.erase(quadrants[i].cities.begin()
-														  + j);
-											quadrants[k].cities.push_back(quadrants[i].cities[j]);
-										}
-										break;
-									} else cnt++;
-								}
-							}
-
-							if ( cnt == 3 ) quadrants[i].cities[j].clusterID = NOISE;
-						}
+						} else collisionDetection(quadrants, i, j, parentIdx);
 					}
 					quadrants[i].center.clusterID = clusterIdx;
 				}
