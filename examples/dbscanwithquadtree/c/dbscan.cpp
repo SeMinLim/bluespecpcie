@@ -16,7 +16,7 @@
 #define FAILURE -3
 
 #define MINIMUM_POINTS 2
-#define EPSILON 8000.00
+#define EPSILON 1000.00
 
 // Haversine
 #define EARTH_RADIUS 6371
@@ -30,10 +30,12 @@ typedef struct Point {
 
 typedef struct Cluster {
 	std::vector<Point> cities;
+	Point lowest;
+	Point highest;
 	Point center;
 	int quadID;
-	int goDbscan;
 	int goQuadtree;
+	int goDbscan;
 }Cluster;
 
 
@@ -59,7 +61,7 @@ void readBenchmarkData(std::vector<Cluster> &quadrants, char* filename, int leng
 		fread(&quadrants[0].cities[i].lon, sizeof(float), 1, f_data);
 		quadrants[0].cities[i].clusterID = UNCLASSIFIED;
 	}
-
+	
 	fclose(f_data);
 }
 
@@ -78,93 +80,119 @@ float haversine(const Point pointCore, const Point pointTarget ) {
 	return asin(sqrt(f)) * 2 * EARTH_RADIUS;
 }
 
+// Function for finding lowest and highest points
+void findLowestHighest(std::vector<Cluster> &quadrants, int quadrantIdx) {
+	for ( int i = 0; i < (int)quadrants[quadrantIdx].cities.size(); i ++ ) {
+		if ( i == 0 ) {
+			quadrants[quadrantIdx].lowest.lat = quadrants[quadrantIdx].cities[i].lat;
+			quadrants[quadrantIdx].lowest.lon = quadrants[quadrantIdx].cities[i].lon;
+			quadrants[quadrantIdx].highest.lat = quadrants[quadrantIdx].cities[i].lat;
+			quadrants[quadrantIdx].highest.lon = quadrants[quadrantIdx].cities[i].lon;
+		} else {
+			if ( quadrants[quadrantIdx].lowest.lat > quadrants[quadrantIdx].cities[i].lat ) {
+				quadrants[quadrantIdx].lowest.lat = quadrants[quadrantIdx].cities[i].lat;
+			}
+			if ( quadrants[quadrantIdx].lowest.lon > quadrants[quadrantIdx].cities[i].lon ) {
+				quadrants[quadrantIdx].lowest.lon = quadrants[quadrantIdx].cities[i].lon;
+			}
+			if ( quadrants[quadrantIdx].highest.lat < quadrants[quadrantIdx].cities[i].lat ) {
+				quadrants[quadrantIdx].highest.lat = quadrants[quadrantIdx].cities[i].lat;
+			}
+			if ( quadrants[quadrantIdx].highest.lon < quadrants[quadrantIdx].cities[i].lon ) {
+				quadrants[quadrantIdx].highest.lon = quadrants[quadrantIdx].cities[i].lon;
+			}
+		}
+	}
+}
+
 // Function for finding center mass value
-void findCenterMass(Cluster* quadrants) {
-	// Center Mass
+void findCenterMass(std::vector<Cluster> &quadrants, int quadrantIdx) {
 	float totalX = 0.00;
 	float totalY = 0.00;
-	for ( int i = 0; i < (int)quadrants->cities.size(); i ++ ) {
-		totalX = totalX + quadrants->cities[i].lat;
-		totalY = totalY + quadrants->cities[i].lon;
+	for ( int i = 0; i < (int)quadrants[quadrantIdx].cities.size(); i ++ ) {
+		totalX = totalX + quadrants[quadrantIdx].cities[i].lat;
+		totalY = totalY + quadrants[quadrantIdx].cities[i].lon;
 	}
-	quadrants->center.lat = totalX / (float)quadrants->cities.size();
-	quadrants->center.lon = totalY / (float)quadrants->cities.size();
+	quadrants[quadrantIdx].center.lat = totalX / (float)quadrants[quadrantIdx].cities.size();
+	quadrants[quadrantIdx].center.lon = totalY / (float)quadrants[quadrantIdx].cities.size();
 }
 
 // Function for initialization
-void initialize(std::vector<Cluster> &quadrants, Point* lowest, Point* highest ) {
+void initialize(std::vector<Cluster> &quadrants) {
 	// Min and Max
-	for ( int i = 0; i < (int)quadrants[0].cities.size(); i ++ ) {
-		if ( i == 0 ) {
-			lowest->lat = quadrants[0].cities[i].lat;
-			lowest->lon = quadrants[0].cities[i].lon;
-			highest->lat = quadrants[0].cities[i].lat;
-			highest->lon = quadrants[0].cities[i].lon;
-		} else {
-			if ( lowest->lat > quadrants[0].cities[i].lat ) lowest->lat = quadrants[0].cities[i].lat;
-			if ( lowest->lon > quadrants[0].cities[i].lon ) lowest->lon = quadrants[0].cities[i].lon;
-			if ( highest->lat < quadrants[0].cities[i].lat ) highest->lat = quadrants[0].cities[i].lat;
-			if ( highest->lon < quadrants[0].cities[i].lon ) highest->lon = quadrants[0].cities[i].lon;
-		}
-	}
+	findLowestHighest(quadrants, 0);
 
 	// Initial cluster
+	quadrants[0].goQuadtree = 1;
 	quadrants[0].goDbscan = 1;
 
 	// Center mass of dataset
-	findCenterMass(&quadrants[0]);
+	findCenterMass(quadrants, 0);
 }
 
 // Quadtree
 void quadtree(std::vector<Cluster> &quadrants, int parentIdx) {
+	// Generate quadrants first
+	int numQuadrants = (int)quadrants.size();
+	quadrants.resize(numQuadrants+4);
+
 	// Initialization for the new children quadrants
-	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
+	int firstQuad = numQuadrants;
+	int lastQuad = (int)quadrants.size();
+	for ( int i = firstQuad; i < lastQuad; i ++ ) {
 		quadrants[i].quadID = i;
-		quadrants[i].goDbscan = 1;
 		quadrants[i].goQuadtree = 1;
+		quadrants[i].goDbscan = 1;
 	}
 	
 	// Quadtree
 	for ( int i = 0; i < (int)quadrants[parentIdx].cities.size(); i ++ ) {
 		if ( (quadrants[parentIdx].cities[i].lat < quadrants[parentIdx].center.lat) && 
 		     (quadrants[parentIdx].cities[i].lon < quadrants[parentIdx].center.lon) ) {
-			int numPoints = quadrants[4*parentIdx+1].cities.size();
-			quadrants[4*parentIdx+1].cities.resize(numPoints+1);
-			quadrants[4*parentIdx+1].cities[numPoints] = quadrants[parentIdx].cities[i];
+			int numPoints = quadrants[firstQuad].cities.size();
+			quadrants[firstQuad].cities.resize(numPoints+1);
+			quadrants[firstQuad].cities[numPoints] = quadrants[parentIdx].cities[i];
 		} else if ( (quadrants[parentIdx].cities[i].lat >= quadrants[parentIdx].center.lat) && 
 			    (quadrants[parentIdx].cities[i].lon < quadrants[parentIdx].center.lon) ) {
-			int numPoints = quadrants[4*parentIdx+2].cities.size();
-			quadrants[4*parentIdx+2].cities.resize(numPoints+1);
-			quadrants[4*parentIdx+2].cities[numPoints] = quadrants[parentIdx].cities[i];
+			int numPoints = quadrants[firstQuad+1].cities.size();
+			quadrants[firstQuad+1].cities.resize(numPoints+1);
+			quadrants[firstQuad+1].cities[numPoints] = quadrants[parentIdx].cities[i];
 		} else if ( (quadrants[parentIdx].cities[i].lat < quadrants[parentIdx].center.lat) && 
 			    (quadrants[parentIdx].cities[i].lon >= quadrants[parentIdx].center.lon) ) {
-			int numPoints = quadrants[4*parentIdx+3].cities.size();
-			quadrants[4*parentIdx+3].cities.resize(numPoints+1);
-			quadrants[4*parentIdx+3].cities[numPoints] = quadrants[parentIdx].cities[i];
+			int numPoints = quadrants[firstQuad+2].cities.size();
+			quadrants[firstQuad+2].cities.resize(numPoints+1);
+			quadrants[firstQuad+2].cities[numPoints] = quadrants[parentIdx].cities[i];
 		} else if ( (quadrants[parentIdx].cities[i].lat >= quadrants[parentIdx].center.lat) && 
 			    (quadrants[parentIdx].cities[i].lon >= quadrants[parentIdx].center.lon) ) {
-			int numPoints = quadrants[4*parentIdx+4].cities.size();
-			quadrants[4*parentIdx+4].cities.resize(numPoints+1);
-			quadrants[4*parentIdx+4].cities[numPoints] = quadrants[parentIdx].cities[i];
+			int numPoints = quadrants[firstQuad+3].cities.size();
+			quadrants[firstQuad+3].cities.resize(numPoints+1);
+			quadrants[firstQuad+3].cities[numPoints] = quadrants[parentIdx].cities[i];
 		}
 	}
 
-	// Center mass of each quadrant
-	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
-		if ( quadrants[i].cities.size() >= 1 ) findCenterMass(&quadrants[i]);
-		else quadrants[i].goDbscan = 0;
+	// Lowest, highest, and center mass value of each quadrant
+	for ( int i = firstQuad; i < lastQuad; i ++ ) {
+		if ( quadrants[i].cities.size() >= 1 ) {
+			findLowestHighest(quadrants, i);
+			findCenterMass(quadrants, i);
+		} else quadrants[i].goDbscan = 0;
 	}
 	
 }
 
+// DBSCAN for quadrants
 int dbscanQuadrants(std::vector<Cluster> &quadrants, int parentIdx) {
-	int cnt = 0;
-
-	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
+	int firstQuad = (int)quadrants.size() - 4;
+	int lastQuad = (int)quadrants.size();
+	int done = 0;
+	for ( int i = firstQuad; i < lastQuad; i ++ ) {
 		if ( quadrants[i].goDbscan != 0 ) {
-			for ( int j = i + 1; j < 4*parentIdx+5; j ++ ) {
+			for ( int j = i + 1; j < lastQuad; j ++ ) {
 				if ( quadrants[j].goDbscan != 0 ) {
-					if ( haversine(quadrants[i].center, quadrants[j].center) <= EPSILON ) {
+					float distanceQuad_i = haversine(quadrants[i].lowest, quadrants[i].highest);
+					float distanceQuad_j = haversine(quadrants[j].lowest, quadrants[j].highest);
+					float newEpsilon = EPSILON + distanceQuad_i + distanceQuad_j;
+					if ( haversine(quadrants[i].center, quadrants[j].center) <= newEpsilon ) {
 						if ( quadrants[j].quadID > quadrants[i].quadID ) {
 							quadrants[j].quadID = quadrants[i].quadID;
 						} else {
@@ -172,75 +200,154 @@ int dbscanQuadrants(std::vector<Cluster> &quadrants, int parentIdx) {
 						}
 						quadrants[i].goQuadtree = 0;
 						quadrants[j].goQuadtree = 0;
-						cnt++;
 					}
 				}
 			}
 		}
 	}
 
-	return cnt;
-}
-
-void collisionDetection(std::vector<Cluster> &quadrants, int quadID, int cityIdx, int parentIdx) {
-	int cnt = 0;
-	for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
-		if ( i != quadID ) {
-			if ( haversine(quadrants[i].center, quadrants[quadID].cities[cityIdx]) <= EPSILON ) {
-				int idx = quadrants[i].quadID;
-				int clusterIdx = quadrants[idx].center.clusterID;
-				if ( clusterIdx != UNCLASSIFIED ) {
-					quadrants[quadID].cities[cityIdx].clusterID = clusterIdx;
-				} else {
-					quadrants[quadID].cities.erase(quadrants[quadID].cities.begin() + cityIdx);
-					quadrants[i].cities.push_back(quadrants[quadID].cities[cityIdx]);
-				}
-				break;
-			} else cnt++;
-		}
+	for ( int i = firstQuad; i < lastQuad; i ++ ) {
+		if ( quadrants[i].goQuadtree == 0 ) done++;
 	}
 
-	if ( cnt == 3 ) {
-		quadrants[quadID].cities[cityIdx].clusterID = NOISE;
-		noise++;
+	return done;
+}
+
+// DBSCAN for local data (border point finder of core point)
+void borderFinderCore(std::vector<Cluster> &quadrants, int quadrantIdx, int cityIdx, std::vector<int> &bordersCore) {
+	bordersCore.resize(0);
+
+	for ( int i = 0; i < (int)quadrants[quadrantIdx].cities.size(); i ++ ) {
+		if ( quadrants[quadrantIdx].cities[i].lat != quadrants[quadrantIdx].cities[cityIdx].lat &&
+		     quadrants[quadrantIdx].cities[i].lon != quadrants[quadrantIdx].cities[cityIdx].lon ) {
+			if ( haversine(quadrants[quadrantIdx].cities[i], quadrants[quadrantIdx].cities[cityIdx]) <= EPSILON ) {
+				bordersCore.push_back(i);
+			}
+		}
+	}
+}
+
+// DBSCAN for local data (border point finder of each border point)
+void borderFinderBorder(std::vector<Cluster> &quadrants, int quadrantIdx, int cityIdx, std::vector<int> &bordersBorder) {
+	bordersBorder.resize(0);
+
+	for ( int i = 0; i < (int)quadrants[quadrantIdx].cities.size(); i ++ ) {
+		if ( quadrants[quadrantIdx].cities[i].lat != quadrants[quadrantIdx].cities[cityIdx].lat &&
+		     quadrants[quadrantIdx].cities[i].lon != quadrants[quadrantIdx].cities[cityIdx].lon ) {
+			if ( haversine(quadrants[quadrantIdx].cities[i], quadrants[quadrantIdx].cities[cityIdx]) <= EPSILON) {
+				bordersBorder.push_back(i);
+			}
+		}
+	}
+}
+
+// DBSCAN for local data (cluster expander)
+void clusterExpander(std::vector<Cluster> &quadrants, int quadrantIdx, int cityIdx, int clusterID) {
+	std::vector<int> bordersCore;
+	std::vector<int> bordersBorder;
+	borderFinderCore(quadrants, quadrantIdx, cityIdx, bordersCore);
+
+	if ( (int)bordersCore.size() < MINIMUM_POINTS ) {
+		quadrants[quadrantIdx].cities[cityIdx].clusterID = NOISE;
+	} else {
+		for ( int i = 0; i < (int)bordersCore.size(); i ++ ) {
+			int borderPoint = bordersCore[i];
+			quadrants[quadrantIdx].cities[borderPoint].clusterID = clusterID;
+		}
+
+		for ( int i = 0; i < (int)bordersCore.size(); i ++ ) {
+			int borderPoint = bordersCore[i];
+			if ( quadrants[quadrantIdx].cities[borderPoint].lat == quadrants[quadrantIdx].cities[cityIdx].lat &&
+			     quadrants[quadrantIdx].cities[borderPoint].lon == quadrants[quadrantIdx].cities[cityIdx].lon ) {
+				continue;
+			} else {
+				borderFinderBorder(quadrants, quadrantIdx, borderPoint, bordersBorder);
+				
+				if ( (int)bordersBorder.size() >= MINIMUM_POINTS ) {
+					for ( int j = 0; j < (int)bordersBorder.size(); j ++ ) {
+						int neighbourPoint = bordersBorder[j];
+						if ( quadrants[quadrantIdx].cities[neighbourPoint].clusterID == UNCLASSIFIED ||
+						     quadrants[quadrantIdx].cities[neighbourPoint].clusterID == NOISE ) {
+							if ( quadrants[quadrantIdx].cities[neighbourPoint].clusterID == UNCLASSIFIED ) {
+								bordersCore.push_back(neighbourPoint);
+							}
+							quadrants[quadrantIdx].cities[neighbourPoint].clusterID = clusterID;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// DBSCAN for local data
+void dbscanLocalData(std::vector<Cluster> &quadrants) {
+	int clusterID = 1;
+	for ( int i = 0; i < (int)quadrants.size(); i ++ ) {
+		if ( quadrants[i].goQuadtree == 0 ) {
+			if ( quadrants[i].quadID == i ) {
+				for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
+					if ( quadrants[i].cities[j].clusterID == UNCLASSIFIED ) {
+						clusterExpander(quadrants, i, j, clusterID);
+					}
+				}
+				quadrants[i].center.clusterID = clusterID;
+				clusterID++;
+			} else {
+				int idx = quadrants[i].quadID;
+				int clusterIdx = quadrants[idx].center.clusterID;
+				for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
+					if ( quadrants[i].cities[j].clusterID == UNCLASSIFIED ) {
+						clusterExpander(quadrants, i, j, clusterIdx);
+					}
+				}
+				quadrants[i].center.clusterID = clusterIdx;
+			}
+		}
 	}
 }
 
 void dbscanQuadtree(std::vector<Cluster> &quadrants) {
-	int clusterID = 1;
+	// 
 	int parentIdx = 0;
-	int stopCondition = 3;
+	// If the distance between the whole center mass values of the generated quadrants are less than new epsilone value,
+	// then the system will be stopped
+	int stopCnt = 0;
+	int stopCondition = 4;
+	// The number of quadrants where should be dealt with at certain phase 
+	int quadCnt = 0;
+	int quadCondition = 1;
+
+	int q = 0;
 	while(1) {
-		// Quadtree first
-		quadtree(quadrants, parentIdx); 	
+		// Main
+		if ( quadrants[parentIdx].goQuadtree == 1 ) {
+			// Quadtree first
+			quadtree(quadrants, parentIdx); 	
 
-		// And then DBSCAN for the quadrants
-		int cnt = dbscanQuadrants(quadrants, parentIdx);
+			// And then DBSCAN for the quadrants
+			q = dbscanQuadrants(quadrants, parentIdx);
 
+			// Update conditions
+			stopCnt = stopCnt + q;
+			quadCnt++;
+		}
+		
 		// Stop or Go
-		if ( cnt == stopCondition ) {
-			// Set the clusterID & Filter the noise
-			for ( int i = 4*parentIdx+1; i < 4*parentIdx+5; i ++ ) {
-				if ( quadrants[i].quadID == i ) {
-					for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
-						if ( haversine(quadrants[i].center, quadrants[i].cities[j]) <= EPSILON ) {
-							quadrants[i].cities[j].clusterID = clusterID;
-						} else collisionDetection(quadrants, i, j, parentIdx);
-					}
-					quadrants[i].center.clusterID = clusterID;
-					clusterID++;
-				} else {
-					int idx = quadrants[i].quadID;
-					int clusterIdx = quadrants[idx].center.clusterID;
-					for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
-						if ( haversine(quadrants[i].center, quadrants[i].cities[j]) <= EPSILON ) {
-							quadrants[i].cities[j].clusterID = clusterIdx;
-						} else collisionDetection(quadrants, i, j, parentIdx);
-					}
-					quadrants[i].center.clusterID = clusterIdx;
-				}
+		if ( quadCnt == quadCondition ) {
+			if ( stopCnt == stopCondition ) {
+				// Set the clusterID & Filter the noise
+				dbscanLocalData(quadrants);
+				break;
+			} else {
+				quadCondition = (4*quadCondition) - stopCnt;
+				stopCondition = 4*quadCondition;
+				stopCnt = 0;
+
+				parentIdx++;
 			}
-			break;
+		} else {
+			parentIdx++;
 		}
 	}
 }
@@ -267,15 +374,14 @@ void printResults(std::vector<Cluster> &quadrants) {
 int main() {
 	int numCities = 44691;
 
-	std::vector<Cluster> quadrants(5);
+	std::vector<Cluster> quadrants(1);
 
 	// Read point data
 	char benchmark_filename[] = "../worldcities.bin";
 	readBenchmarkData(quadrants, benchmark_filename, numCities);
 
 	// Initialize
-	Point lowest, highest;
-	initialize(quadrants, &lowest, &highest);
+	initialize(quadrants);
 	
 	// DBSCAN with Quadtree
 	printf( "Quadtree-based DBSCAN Clustering for 44691 Cities Start!\n" );
@@ -290,6 +396,6 @@ int main() {
 	// result of DBSCAN algorithm
 	printResults(quadrants);
 	printf( "Elapsed Time (CPU): %.4f\n", processTime );
-
+	
 	return 0;
 }
