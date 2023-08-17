@@ -16,7 +16,7 @@
 #define FAILURE -3
 
 #define MINIMUM_POINTS 2
-#define EPSILON 1000.00
+#define EPSILON 2000.00
 
 // Haversine
 #define EARTH_RADIUS 6371
@@ -33,6 +33,7 @@ typedef struct Cluster {
 	Point lowest;
 	Point highest;
 	Point center;
+	Point calculation;
 	int quadID;
 	int goQuadtree;
 	int goDbscan;
@@ -177,87 +178,21 @@ void quadtree(std::vector<Cluster> &quadrants, int parentIdx) {
 			findCenterMass(quadrants, i);
 		} else quadrants[i].goDbscan = 0;
 	}
-	
+
+	// Calculating points for each quadrants for DBSCAN of quadrants
+	quadrants[firstQuad].calculation.lat = (quadrants[firstQuad].center.lat + quadrants[firstQuad].highest.lat) / 2.00;
+	quadrants[firstQuad].calculation.lon = (quadrants[firstQuad].center.lon + quadrants[firstQuad].highest.lon) / 2.00;
+	quadrants[firstQuad+1].calculation.lat = (quadrants[firstQuad+1].lowest.lat + quadrants[firstQuad+1].center.lat) / 2.00;
+	quadrants[firstQuad+1].calculation.lon = (quadrants[firstQuad+1].center.lon + quadrants[firstQuad+1].highest.lon) / 2.00;
+	quadrants[firstQuad+2].calculation.lat = (quadrants[firstQuad+2].center.lat + quadrants[firstQuad+2].highest.lat) / 2.00;
+	quadrants[firstQuad+2].calculation.lon = (quadrants[firstQuad+2].lowest.lon + quadrants[firstQuad+2].center.lon) / 2.00;
+	quadrants[firstQuad+3].calculation.lat = (quadrants[firstQuad+3].lowest.lat + quadrants[firstQuad+3].center.lat) / 2.00;
+	quadrants[firstQuad+3].calculation.lon = (quadrants[firstQuad+3].lowest.lon + quadrants[firstQuad+3].center.lon) / 2.00;
 }
 
 // DBSCAN for quadrants (cluster expander)
 void clusterExpanderQuad(std::vector<Cluster> &quadrants, int operandA, int operandB, int firstQuad) {
-	float newEpsilon = 0.00;
-
-	if ( operandA == firstQuad ) {
-		if ( operandB == firstQuad + 1 ) {
-			Point i;
-			i.lat = quadrants[operandA].lowest.lat;
-			i.lon = quadrants[operandA].highest.lon;
-			float distanceA = haversine(quadrants[operandA].highest, i);
-			Point j;
-			j.lat = quadrants[operandB].lowest.lat;
-			j.lon = quadrants[operandB].highest.lon;
-			float distanceB = haversine(quadrants[operandB].highest, j);
-			newEpsilon = EPSILON + distanceA + distanceB;
-		} 
-		else if ( operandB == firstQuad + 2 ) {
-			Point i;
-			i.lat = quadrants[operandA].highest.lat;
-			i.lon = quadrants[operandA].lowest.lon;
-			float distanceA = haversine(quadrants[operandA].highest, i);
-			Point j;
-			j.lat = quadrants[operandB].highest.lat;
-			j.lon = quadrants[operandB].lowest.lon;
-			float distanceB = haversine(quadrants[operandB].highest, j);
-			newEpsilon = EPSILON + distanceA + distanceB;
-		} 
-		else if ( operandB == firstQuad + 3 ) {
-			float distanceA = haversine(quadrants[operandA].highest, quadrants[operandA].lowest);
-			float distanceB = haversine(quadrants[operandB].highest, quadrants[operandB].lowest);
-			newEpsilon = EPSILON + distanceA + distanceB;
-		}
-	} 
-	else if ( operandA == firstQuad + 1 ) {
-		if ( operandB == firstQuad + 2 ) {
-			Point i;
-			i.lat = quadrants[operandA].highest.lat;
-			i.lon = quadrants[operandA].lowest.lon;
-			Point j;
-			j.lat = quadrants[operandA].lowest.lat;
-			j.lon = quadrants[operandA].highest.lon;
-			float distanceA = haversine(i, j);
-			Point k;
-			k.lat = quadrants[operandB].highest.lat;
-			k.lon = quadrants[operandB].lowest.lon;
-			Point l;
-			l.lat = quadrants[operandB].lowest.lat;
-			l.lon = quadrants[operandB].highest.lon;
-			float distanceB = haversine(k, l);
-			newEpsilon = EPSILON + distanceA + distanceB;
-		} 
-		else if ( operandB == firstQuad + 3 ) {
-			Point i;
-			i.lat = quadrants[operandA].highest.lat;
-			i.lon = quadrants[operandB].lowest.lon;
-			float distanceA = haversine(quadrants[operandA].highest, i);
-			Point j;
-			j.lat = quadrants[operandB].highest.lat;
-			j.lon = quadrants[operandB].lowest.lon;
-			float distanceB = haversine(quadrants[operandB].highest, j);
-			newEpsilon = EPSILON + distanceA + distanceB;
-		}
-	} 
-	else if ( operandA == firstQuad + 2 ) {
-		if ( operandB == firstQuad + 3 ) {
-			Point i;
-			i.lat = quadrants[operandA].lowest.lat;
-			i.lon = quadrants[operandB].highest.lon;
-			float distanceA = haversine(quadrants[operandA].highest, i);
-			Point j;
-			j.lat = quadrants[operandB].lowest.lat;
-			j.lon = quadrants[operandB].highest.lon;
-			float distanceB = haversine(quadrants[operandB].highest, j);
-			newEpsilon = EPSILON + distanceA + distanceB;
-		}
-	}
-
-	if ( haversine(quadrants[operandA].center, quadrants[operandB].center) <= newEpsilon ) {
+	if ( haversine(quadrants[operandA].center, quadrants[operandB].center) <= 4 * EPSILON ) {
 		if ( quadrants[operandB].quadID > quadrants[operandA].quadID ) {
 			quadrants[operandB].quadID = quadrants[operandA].quadID;
 		} else {
@@ -265,6 +200,7 @@ void clusterExpanderQuad(std::vector<Cluster> &quadrants, int operandA, int oper
 		}
 		quadrants[operandA].goQuadtree = 0;
 		quadrants[operandB].goQuadtree = 0;
+		printf( "%d, %d\n", operandA, operandB );
 	}
 }
 
@@ -284,9 +220,13 @@ int dbscanQuadrants(std::vector<Cluster> &quadrants, int parentIdx) {
 	}
 
 	for ( int i = firstQuad; i < lastQuad; i ++ ) {
-		if ( quadrants[i].goQuadtree == 0 ) done++;
+		if ( quadrants[i].goQuadtree == 0 ) {
+			done++;
+			printf( "%d\n", quadrants[i].quadID );
+		}
+		else printf( "%d\n", i );
 	}
-
+	printf( "%d\n", done );
 	return done;
 }
 
@@ -362,6 +302,7 @@ void dbscanLocalData(std::vector<Cluster> &quadrants) {
 	int clusterID = 1;
 	for ( int i = 0; i < (int)quadrants.size(); i ++ ) {
 		if ( quadrants[i].goQuadtree == 0 ) {
+			printf( "%d\n", i );
 			if ( quadrants[i].quadID == i ) {
 				for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
 					if ( quadrants[i].cities[j].clusterID == UNCLASSIFIED ) {
@@ -408,19 +349,22 @@ void dbscanQuadtree(std::vector<Cluster> &quadrants) {
 			// Update conditions
 			stopCnt = stopCnt + q;
 			quadCnt++;
+			printf( "stop:%d\n", stopCnt );
+			printf( "quad:%d\n", quadCnt );
 		}
 		
 		// Stop or Go
 		if ( quadCnt == quadCondition ) {
 			if ( stopCnt == stopCondition ) {
 				// Set the clusterID & Filter the noise
+				printf( "!" );
 				dbscanLocalData(quadrants);
 				break;
 			} else {
-				quadCondition = (4*quadCondition) - stopCnt;
+				quadCondition = 4*quadCondition - stopCnt;
 				stopCondition = 4*quadCondition;
 				stopCnt = 0;
-
+				quadCnt = 0;
 				parentIdx++;
 			}
 		} else {
