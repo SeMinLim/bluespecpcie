@@ -180,7 +180,95 @@ void quadtree(std::vector<Cluster> &quadrants, int parentIdx) {
 	
 }
 
-// DBSCAN for quadrants
+// DBSCAN for quadrants (cluster expander)
+void clusterExpanderQuad(std::vector<Cluster> &quadrants, int operandA, int operandB, int firstQuad) {
+	float newEpsilon = 0.00;
+
+	if ( operandA == firstQuad ) {
+		if ( operandB == firstQuad + 1 ) {
+			Point i;
+			i.lat = quadrants[operandA].lowest.lat;
+			i.lon = quadrants[operandA].highest.lon;
+			float distanceA = haversine(quadrants[operandA].highest, i);
+			Point j;
+			j.lat = quadrants[operandB].lowest.lat;
+			j.lon = quadrants[operandB].highest.lon;
+			float distanceB = haversine(quadrants[operandB].highest, j);
+			newEpsilon = EPSILON + distanceA + distanceB;
+		} 
+		else if ( operandB == firstQuad + 2 ) {
+			Point i;
+			i.lat = quadrants[operandA].highest.lat;
+			i.lon = quadrants[operandA].lowest.lon;
+			float distanceA = haversine(quadrants[operandA].highest, i);
+			Point j;
+			j.lat = quadrants[operandB].highest.lat;
+			j.lon = quadrants[operandB].lowest.lon;
+			float distanceB = haversine(quadrants[operandB].highest, j);
+			newEpsilon = EPSILON + distanceA + distanceB;
+		} 
+		else if ( operandB == firstQuad + 3 ) {
+			float distanceA = haversine(quadrants[operandA].highest, quadrants[operandA].lowest);
+			float distanceB = haversine(quadrants[operandB].highest, quadrants[operandB].lowest);
+			newEpsilon = EPSILON + distanceA + distanceB;
+		}
+	} 
+	else if ( operandA == firstQuad + 1 ) {
+		if ( operandB == firstQuad + 2 ) {
+			Point i;
+			i.lat = quadrants[operandA].highest.lat;
+			i.lon = quadrants[operandA].lowest.lon;
+			Point j;
+			j.lat = quadrants[operandA].lowest.lat;
+			j.lon = quadrants[operandA].highest.lon;
+			float distanceA = haversine(i, j);
+			Point k;
+			k.lat = quadrants[operandB].highest.lat;
+			k.lon = quadrants[operandB].lowest.lon;
+			Point l;
+			l.lat = quadrants[operandB].lowest.lat;
+			l.lon = quadrants[operandB].highest.lon;
+			float distanceB = haversine(k, l);
+			newEpsilon = EPSILON + distanceA + distanceB;
+		} 
+		else if ( operandB == firstQuad + 3 ) {
+			Point i;
+			i.lat = quadrants[operandA].highest.lat;
+			i.lon = quadrants[operandB].lowest.lon;
+			float distanceA = haversine(quadrants[operandA].highest, i);
+			Point j;
+			j.lat = quadrants[operandB].highest.lat;
+			j.lon = quadrants[operandB].lowest.lon;
+			float distanceB = haversine(quadrants[operandB].highest, j);
+			newEpsilon = EPSILON + distanceA + distanceB;
+		}
+	} 
+	else if ( operandA == firstQuad + 2 ) {
+		if ( operandB == firstQuad + 3 ) {
+			Point i;
+			i.lat = quadrants[operandA].lowest.lat;
+			i.lon = quadrants[operandB].highest.lon;
+			float distanceA = haversine(quadrants[operandA].highest, i);
+			Point j;
+			j.lat = quadrants[operandB].lowest.lat;
+			j.lon = quadrants[operandB].highest.lon;
+			float distanceB = haversine(quadrants[operandB].highest, j);
+			newEpsilon = EPSILON + distanceA + distanceB;
+		}
+	}
+
+	if ( haversine(quadrants[operandA].center, quadrants[operandB].center) <= newEpsilon ) {
+		if ( quadrants[operandB].quadID > quadrants[operandA].quadID ) {
+			quadrants[operandB].quadID = quadrants[operandA].quadID;
+		} else {
+			quadrants[operandA].quadID = quadrants[operandB].quadID;
+		}
+		quadrants[operandA].goQuadtree = 0;
+		quadrants[operandB].goQuadtree = 0;
+	}
+}
+
+// DBSCAN for quadrants (main)
 int dbscanQuadrants(std::vector<Cluster> &quadrants, int parentIdx) {
 	int firstQuad = (int)quadrants.size() - 4;
 	int lastQuad = (int)quadrants.size();
@@ -189,18 +277,7 @@ int dbscanQuadrants(std::vector<Cluster> &quadrants, int parentIdx) {
 		if ( quadrants[i].goDbscan != 0 ) {
 			for ( int j = i + 1; j < lastQuad; j ++ ) {
 				if ( quadrants[j].goDbscan != 0 ) {
-					float distanceQuad_i = haversine(quadrants[i].lowest, quadrants[i].highest);
-					float distanceQuad_j = haversine(quadrants[j].lowest, quadrants[j].highest);
-					float newEpsilon = EPSILON + distanceQuad_i + distanceQuad_j;
-					if ( haversine(quadrants[i].center, quadrants[j].center) <= newEpsilon ) {
-						if ( quadrants[j].quadID > quadrants[i].quadID ) {
-							quadrants[j].quadID = quadrants[i].quadID;
-						} else {
-							quadrants[i].quadID = quadrants[j].quadID;
-						}
-						quadrants[i].goQuadtree = 0;
-						quadrants[j].goQuadtree = 0;
-					}
+					clusterExpanderQuad(quadrants, i, j, firstQuad);
 				}
 			}
 		}
@@ -242,7 +319,7 @@ void borderFinderBorder(std::vector<Cluster> &quadrants, int quadrantIdx, int ci
 }
 
 // DBSCAN for local data (cluster expander)
-void clusterExpander(std::vector<Cluster> &quadrants, int quadrantIdx, int cityIdx, int clusterID) {
+void clusterExpanderData(std::vector<Cluster> &quadrants, int quadrantIdx, int cityIdx, int clusterID) {
 	std::vector<int> bordersCore;
 	std::vector<int> bordersBorder;
 	borderFinderCore(quadrants, quadrantIdx, cityIdx, bordersCore);
@@ -288,7 +365,7 @@ void dbscanLocalData(std::vector<Cluster> &quadrants) {
 			if ( quadrants[i].quadID == i ) {
 				for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
 					if ( quadrants[i].cities[j].clusterID == UNCLASSIFIED ) {
-						clusterExpander(quadrants, i, j, clusterID);
+						clusterExpanderData(quadrants, i, j, clusterID);
 					}
 				}
 				quadrants[i].center.clusterID = clusterID;
@@ -298,7 +375,7 @@ void dbscanLocalData(std::vector<Cluster> &quadrants) {
 				int clusterIdx = quadrants[idx].center.clusterID;
 				for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
 					if ( quadrants[i].cities[j].clusterID == UNCLASSIFIED ) {
-						clusterExpander(quadrants, i, j, clusterIdx);
+						clusterExpanderData(quadrants, i, j, clusterIdx);
 					}
 				}
 				quadrants[i].center.clusterID = clusterIdx;
