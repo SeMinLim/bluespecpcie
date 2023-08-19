@@ -191,8 +191,9 @@ void quadtree(std::vector<Cluster> &quadrants, int parentIdx) {
 }
 
 // DBSCAN for quadrants (cluster expander)
-void clusterExpanderQuad(std::vector<Cluster> &quadrants, int operandA, int operandB, int firstQuad) {
-	if ( haversine(quadrants[operandA].center, quadrants[operandB].center) <= 4 * EPSILON ) {
+void clusterExpanderQuad(std::vector<Cluster> &quadrants, int operandA, int operandB, int firstQuad, int parentIdx) {
+	if ( haversine(quadrants[operandA].center, quadrants[operandB].center) <= 
+	     (EPSILON + haversine(quadrants[operandA].calculation, quadrants[operandB].calculation)) ) {
 		if ( quadrants[operandB].quadID > quadrants[operandA].quadID ) {
 			quadrants[operandB].quadID = quadrants[operandA].quadID;
 		} else {
@@ -200,7 +201,6 @@ void clusterExpanderQuad(std::vector<Cluster> &quadrants, int operandA, int oper
 		}
 		quadrants[operandA].goQuadtree = 0;
 		quadrants[operandB].goQuadtree = 0;
-		printf( "%d, %d\n", operandA, operandB );
 	}
 }
 
@@ -213,20 +213,15 @@ int dbscanQuadrants(std::vector<Cluster> &quadrants, int parentIdx) {
 		if ( quadrants[i].goDbscan != 0 ) {
 			for ( int j = i + 1; j < lastQuad; j ++ ) {
 				if ( quadrants[j].goDbscan != 0 ) {
-					clusterExpanderQuad(quadrants, i, j, firstQuad);
+					clusterExpanderQuad(quadrants, i, j, firstQuad, parentIdx);
 				}
 			}
 		}
 	}
 
 	for ( int i = firstQuad; i < lastQuad; i ++ ) {
-		if ( quadrants[i].goQuadtree == 0 ) {
-			done++;
-			printf( "%d\n", quadrants[i].quadID );
-		}
-		else printf( "%d\n", i );
+		if ( quadrants[i].goQuadtree == 0 ) done++;
 	}
-	printf( "%d\n", done );
 	return done;
 }
 
@@ -302,7 +297,6 @@ void dbscanLocalData(std::vector<Cluster> &quadrants) {
 	int clusterID = 1;
 	for ( int i = 0; i < (int)quadrants.size(); i ++ ) {
 		if ( quadrants[i].goQuadtree == 0 ) {
-			printf( "%d\n", i );
 			if ( quadrants[i].quadID == i ) {
 				for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
 					if ( quadrants[i].cities[j].clusterID == UNCLASSIFIED ) {
@@ -349,15 +343,12 @@ void dbscanQuadtree(std::vector<Cluster> &quadrants) {
 			// Update conditions
 			stopCnt = stopCnt + q;
 			quadCnt++;
-			printf( "stop:%d\n", stopCnt );
-			printf( "quad:%d\n", quadCnt );
 		}
 		
 		// Stop or Go
 		if ( quadCnt == quadCondition ) {
 			if ( stopCnt == stopCondition ) {
 				// Set the clusterID & Filter the noise
-				printf( "!" );
 				dbscanLocalData(quadrants);
 				break;
 			} else {
