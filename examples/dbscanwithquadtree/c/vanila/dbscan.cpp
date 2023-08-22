@@ -334,7 +334,7 @@ int clusterExpander(std::vector<Cluster> &quadrants, Index point, int clusterID)
 }
 
 // DBSCAN (Main)
-void dbscan(std::vector<Cluster> &quadrants) {
+int dbscan(std::vector<Cluster> &quadrants) {
 	int clusterID = 1;
 	for ( int i = 0; i < (int)quadrants.size(); i ++ ) {
 		for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
@@ -346,12 +346,14 @@ void dbscan(std::vector<Cluster> &quadrants) {
 			}
 		}
 	}
+	
+	return clusterID-1;
 }
 
 // Function for printing results
 void printResults(std::vector<Cluster> &quadrants) {
-	printf(" x     y     cluster_id\n"
-	       "-----------------------\n");
+	printf(" x       y       cluster_id\n"
+	       "---------------------------\n");
 
 	int numDataPoints = 0;
 	for ( int i = 0; i < (int)quadrants.size(); i ++ ) {
@@ -362,7 +364,8 @@ void printResults(std::vector<Cluster> &quadrants) {
 		numDataPoints = numDataPoints + (int)quadrants[i].cities.size();
 	}
 
-	printf( "Number of Points: %d\n", numDataPoints );
+	printf( "--------------------------\n" );
+	printf( "Number of Points  : %d\n", numDataPoints );
 }
 
 // Main
@@ -372,7 +375,7 @@ int main() {
 	std::vector<Cluster> quadrants(1);
 
 	// Read point data
-	char benchmark_filename[] = "../worldcities.bin";
+	char benchmark_filename[] = "../../worldcities.bin";
 	readBenchmarkData(quadrants, benchmark_filename, numCities);
 
 	// Initialize
@@ -384,7 +387,7 @@ int main() {
 	// DBSCAN
 	printf( "Quadtree-based DBSCAN Clustering for 44691 Cities Start!\n" );
 	double processStart = timeCheckerCPU();
-	dbscan(quadrants);
+	int maxClusterID = dbscan(quadrants);
 	double processFinish = timeCheckerCPU();
 	double processTime = processFinish - processStart;
 	printf( "Quadtree-based DBSCAN Clustering for 44691 Cities Done!\n" );
@@ -394,6 +397,7 @@ int main() {
 	// result of Quadtree-based DBSCAN algorithm
 	printResults(quadrants);
 	printf( "Elapsed Time (CPU): %.6f\n", processTime );
-	
+	printf( "Max Cluster ID    : %d\n", maxClusterID );
+
 	return 0;
 }
