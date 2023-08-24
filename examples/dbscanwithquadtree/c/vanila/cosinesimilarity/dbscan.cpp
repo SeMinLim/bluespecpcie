@@ -16,7 +16,7 @@
 #define FAILURE -3
 
 #define MINIMUM_POINTS 2
-#define EPSILON 2000.00
+#define EPSILON 0.9
 
 // Haversine
 #define EARTH_RADIUS 6371
@@ -69,19 +69,15 @@ void readBenchmarkData(std::vector<Cluster> &quadrants, char* filename, int leng
 	fclose(f_data);
 }
 
-// Haversine
-float haversine(const Point pointCore, const Point pointTarget ) {
-	// Distance between latitudes and longitudes
-	float dlat = (pointTarget.lat-pointCore.lat)*TO_RADIAN;
-	float dlon = (pointTarget.lon-pointCore.lon)*TO_RADIAN;
+// Cosine Similarity
+float cosineSimilarity(const Point pointCore, const Point pointTarget) {
+	float xy = pointCore.lat*pointTarget.lat + pointCore.lon*pointTarget.lon;
+	
+	float mag_x = sqrt(pow(pointCore.lat, 2.00) + pow(pointCore.lon, 2.00));
+	float mag_y = sqrt(pow(pointTarget.lat, 2.00) + pow(pointTarget.lon, 2.00));
+	float mag_xy = mag_x * mag_y;
 
-	// Convert to radians
-	float rad_lat_core = pointCore.lat*TO_RADIAN;
-	float rad_lat_target = pointTarget.lat*TO_RADIAN;
-
-	// Apply formula
-	float f = pow(sin(dlat/2),2) + pow(sin(dlon/2),2) * cos(rad_lat_core) * cos(rad_lat_target);
-	return asin(sqrt(f)) * 2 * EARTH_RADIUS;
+	return xy / mag_xy;
 }
 
 // Function for finding lowest and highest points
@@ -125,7 +121,7 @@ void findCenterMass(std::vector<Cluster> &quadrants, int quadrantIdx) {
 
 // Function for finding a length of diagonal haversine distance
 void findDiagonal(std::vector<Cluster> &quadrants, int quadrantIdx) {
-	float diagonal = haversine(quadrants[quadrantIdx].highest, quadrants[quadrantIdx].lowest);
+	float diagonal = cosineSimilarity(quadrants[quadrantIdx].highest, quadrants[quadrantIdx].lowest);
 	quadrants[quadrantIdx].diagonal = diagonal;
 }
 
@@ -160,7 +156,7 @@ void initialize(std::vector<Cluster> &quadrants) {
 	// Diagonal haversine distance
 	findDiagonal(quadrants, 0);
 
-	if ( quadrants[0].diagonal <= EPSILON ) quadrants[0].done = 1;
+	if ( quadrants[0].diagonal >= EPSILON ) quadrants[0].done = 1;
 }
 
 // Quadtree
@@ -222,7 +218,7 @@ void quadtree(std::vector<Cluster> &quadrants) {
 			if ( quadrants[i].cities.size() > 1 ) {
 				findCenterMass(quadrants, i);
 				findDiagonal(quadrants, i);
-				if ( quadrants[i].diagonal <= EPSILON ) quadrants[i].done = 1;
+				if ( quadrants[i].diagonal >= EPSILON ) quadrants[i].done = 1;
 				i++;
 			} else if ( quadrants[i].cities.size() == 1 ) {
 				findCenterMass(quadrants, i);
@@ -247,8 +243,8 @@ void borderFinderCore(std::vector<Cluster> &quadrants, Index point, std::vector<
 		if ( quadrants[point.quadrantIdx].cities[point.cityIdx].lat != quadrants[i].cities[0].lat &&
 		     quadrants[point.quadrantIdx].cities[point.cityIdx].lon != quadrants[i].cities[0].lon ) {
 			if ( quadrants[i].cities[0].clusterID == UNCLASSIFIED || quadrants[i].cities[0].clusterID == NOISE ) {
-				if ( haversine(quadrants[point.quadrantIdx].cities[point.cityIdx], quadrants[i].cities[0]) <= EPSILON ) {
-					if ( quadrants[i].diagonal <= EPSILON ) {
+				if ( cosineSimilarity(quadrants[point.quadrantIdx].cities[point.cityIdx], quadrants[i].cities[0]) >= EPSILON ) {
+					if ( quadrants[i].diagonal >= EPSILON ) {
 						for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
 							border.quadrantIdx = i;
 							border.cityIdx = j;
@@ -274,8 +270,8 @@ void borderFinderBorder(std::vector<Cluster> &quadrants, Index point, std::vecto
 		if ( quadrants[point.quadrantIdx].cities[point.cityIdx].lat != quadrants[i].cities[0].lat &&
 		     quadrants[point.quadrantIdx].cities[point.cityIdx].lon != quadrants[i].cities[0].lon ) {
 			if ( quadrants[i].cities[0].clusterID == UNCLASSIFIED || quadrants[i].cities[0].clusterID == NOISE ) {
-				if ( haversine(quadrants[point.quadrantIdx].cities[point.cityIdx], quadrants[i].cities[0]) <= EPSILON ) {
-					if ( quadrants[i].diagonal <= EPSILON ) {
+				if ( cosineSimilarity(quadrants[point.quadrantIdx].cities[point.cityIdx], quadrants[i].cities[0]) >= EPSILON ) {
+					if ( quadrants[i].diagonal >= EPSILON ) {
 						for ( int j = 0; j < (int)quadrants[i].cities.size(); j ++ ) {
 							border.quadrantIdx = i;
 							border.cityIdx = j;
@@ -375,7 +371,7 @@ int main() {
 	std::vector<Cluster> quadrants(1);
 
 	// Read point data
-	char benchmark_filename[] = "../../worldcities.bin";
+	char benchmark_filename[] = "../../../worldcities.bin";
 	readBenchmarkData(quadrants, benchmark_filename, numCities);
 
 	// Initialize
