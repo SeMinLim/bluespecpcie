@@ -51,20 +51,24 @@ int main(int argc, char** argv) {
 	}
 
 	// Send data
-	pcie->userWriteWord(0, 0);
-	for ( int i = 0; i < 8; i ++ ) {
-		pcie->userWriteWord(4, cities_uint32[16]);
+	for ( int i = 0; i < 4; i ++ ) {
+		pcie->userWriteWord(0, cities_uint32[16]);
 		pcie->userWriteWord(4, cities_uint32[17]);
+		pcie->userWriteWord(8, cities_uint32[16]);
+		pcie->userWriteWord(12, cities_uint32[17]);
 	}
 
-	sleep(10);
+	sleep(1);
 
 	// Get result
-	uint32_t result = pcie->userReadWord(0);
-	uint32_t cycle = pcie->userReadWord(4);
-
-	printf( "Result: %f\n", *(float*)&result );
-	printf( "Total Cycles: %d\n", cycle );
+	uint32_t result[4];
+	uint32_t cycle[4];
+	for ( int i = 0; i < 4; i ++ ) {
+		result[i] = pcie->userReadWord(0);
+		cycle[i] = pcie->userReadWord(4);
+		printf( "Result: %f\n", *(float*)&result[i] );
+		printf( "Cycle: %d\n", cycle[i] );
+	}
 
 	return 0;
 }

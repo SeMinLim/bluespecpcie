@@ -11,8 +11,10 @@ import Trigonometric32::*;
 
 interface HaversineIfc;
 	method Action dataInToRadian(Bit#(32) d);
-	method Action dataInPointA(Bit#(64) d);
-	method Action dataInPointB(Bit#(64) d);
+	method Action dataInPointALat(Bit#(32) d);
+	method Action dataInPointALon(Bit#(32) d);
+	method Action dataInPointBLat(Bit#(32) d);
+	method Action dataInPointBLon(Bit#(32) d);
 	method ActionValue#(Bit#(32)) resultOut;
 endinterface
 (* synthesize *)
@@ -32,13 +34,13 @@ module mkHaversine(HaversineIfc);
 	// Get data from HwMain & Send result to HwMain
 	//--------------------------------------------------------------------------------------------
 	Reg#(Maybe#(Bit#(32))) toRadian <- mkReg(tagged Invalid);
-	FIFO#(Bit#(32)) pointALat <- mkFIFO;
-	FIFO#(Bit#(32)) pointALon <- mkFIFO;
-	FIFO#(Bit#(32)) pointBLat <- mkFIFO;
-	FIFO#(Bit#(32)) pointBLon <- mkFIFO;
-	FIFO#(Bit#(32)) pointALatRad <- mkFIFO;
-	FIFO#(Bit#(32)) pointBLatRad <- mkFIFO;
-	FIFO#(Bit#(32)) resultQ <- mkFIFO;
+	FIFO#(Bit#(32)) pointALat <- mkSizedFIFO(16);
+	FIFO#(Bit#(32)) pointALon <- mkSizedFIFO(16);
+	FIFO#(Bit#(32)) pointBLat <- mkSizedFIFO(16);
+	FIFO#(Bit#(32)) pointBLon <- mkSizedFIFO(16);
+	FIFO#(Bit#(32)) pointALatRad <- mkSizedFIFO(16);
+	FIFO#(Bit#(32)) pointBLatRad <- mkSizedFIFO(16);
+	FIFO#(Bit#(32)) resultQ <- mkSizedFIFO(16);
 	Reg#(Bit#(32)) resultCnt <- mkReg(0);
 	//--------------------------------------------------------------------------------------------
 	// Haversine Formula
@@ -189,19 +191,19 @@ module mkHaversine(HaversineIfc);
 	method Action dataInToRadian(Bit#(32) d);
 		toRadian <= tagged Valid d;
 	endmethod
-	method Action dataInPointA(Bit#(64) d);
-		let lat = d[31:0];
-		let lon = d[63:32];
-		pointALat.enq(lat);
-		pointALon.enq(lon);
-		if ( isValid(toRadian) ) toRadian_mult[0].enq(lat, fromMaybe(?,toRadian));
+	method Action dataInPointALat(Bit#(32) d);
+		pointALat.enq(d);
+		if ( isValid(toRadian) ) toRadian_mult[0].enq(d, fromMaybe(?,toRadian));
 	endmethod
-	method Action dataInPointB(Bit#(64) d);
-		let lat = d[31:0];
-		let lon = d[63:32];
-		pointBLat.enq(lat);
-		pointBLon.enq(lon);
-		if ( isValid(toRadian) ) toRadian_mult[1].enq(lat, fromMaybe(?,toRadian));
+	method Action dataInPointALon(Bit#(32) d);
+		pointALon.enq(d);
+	endmethod
+	method Action dataInPointBLat(Bit#(32) d);
+		pointBLat.enq(d);
+		if ( isValid(toRadian) ) toRadian_mult[1].enq(d, fromMaybe(?,toRadian));
+	endmethod
+	method Action dataInPointBLon(Bit#(32) d);
+		pointBLon.enq(d);
 	endmethod
 	method ActionValue#(Bit#(32)) resultOut;
 		resultQ.deq;

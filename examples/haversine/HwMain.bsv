@@ -3,15 +3,10 @@ import FIFOF::*;
 import Clocks::*;
 import Vector::*;
 
-import Serializer::*;
-
 import BRAM::*;
 import BRAMFIFO::*;
 
 import PcieCtrl::*;
-
-import DRAMController::*;
-import DRAMArbiter::*;
 
 import FloatingPoint::*;
 import Float32::*;
@@ -21,12 +16,9 @@ import Trigonometric32::*;
 import Haversine::*;
 
 
-typedef 1 TotalData64B;
-
-
 interface HwMainIfc;
 endinterface
-module mkHwMain#(PcieUserIfc pcie, DRAMUserIfc dram) 
+module mkHwMain#(PcieUserIfc pcie) 
 	(HwMainIfc);
 
 	Clock curClk <- exposeCurrentClock;
@@ -43,13 +35,6 @@ module mkHwMain#(PcieUserIfc pcie, DRAMUserIfc dram)
 	rule incCycleCount;
 		cycleCount <= cycleCount + 1;
 	endrule
-
-	// Serializer & Deserializer
-	SerializerIfc#(512, 8) serializer64b <- mkSerializer;
-	DeSerializerIfc#(32, 16) deserializer32b <- mkDeSerializer;
-	
-	// DRAM Arbiter
-	DRAMArbiterIfc#(2) dramArbiter <- mkDRAMArbiter(dram);
 
 	// Haversine Module
 	HaversineIfc haversine <- mkHaversine;
@@ -70,9 +55,6 @@ module mkHwMain#(PcieUserIfc pcie, DRAMUserIfc dram)
 		haversine.dataInToRadian(preamble_div.first);
 	endrule
 
-	// Switches
-	Reg#(Bool) dramWriterOn <- mkReg(False);
-	Reg#(Bool) dramReaderOn <- mkReg(False);
 	//--------------------------------------------------------------------------------------
 	// Pcie Read and Write
 	//--------------------------------------------------------------------------------------
@@ -104,69 +86,20 @@ module mkHwMain#(PcieUserIfc pcie, DRAMUserIfc dram)
 		let off = (a >> 2);
 
 		if ( off == 0 ) begin
-			dramWriterOn <= True;
-			$write("\033[1;33mCycle %1d -> \033[1;33m[HwMain]: \033[0m: Write data \033[1;32mstart!\033[0m\n",cycleCount);
+			haversine.dataInPointALat(d);
 		end else if ( off == 1 ) begin
-			deserializer32b.put(d);
-		end
-	endrule
-	//--------------------------------------------------------------------------------------------
-	// DRAM Writer
-	//--------------------------------------------------------------------------------------------
-	Reg#(Bit#(32)) dramWriterCnt <- mkReg(0);
-	rule dramWriter( dramWriterOn );
-		if ( dramWriterCnt != 0 ) begin
-			let data64B <- deserializer32b.get;
-			dramArbiter.users[0].write(data64B);
-			if ( dramWriterCnt == fromInteger(valueOf(TotalData64B)) ) begin
-				dramWriterCnt <= 0;
-				dramWriterOn <= False;
-				dramReaderOn <= True;
-				$write("\033[1;33mCycle %1d -> \033[1;33m[HwMain]: \033[0m: Write data \033[1;32mdone!\033[0m\n",cycleCount);
-			end else begin
-				dramWriterCnt <= dramWriterCnt + 1;
-			end
-		end else begin
-			dramArbiter.users[0].cmd(0, fromInteger(valueOf(TotalData64B)), True);
-			dramWriterCnt <= dramWriterCnt + 1;
-		end
-	endrule
-	//--------------------------------------------------------------------------------------------
-	// DRAM Reader
-	//--------------------------------------------------------------------------------------------
-	Reg#(Bit#(32)) dramReaderCnt <- mkReg(0);
-	rule dramReader( dramReaderOn );
-		if ( dramReaderCnt != 0 ) begin
-			let data <- dramArbiter.users[0].read;
-			serializer64b.put(data);
-			if ( dramReaderCnt == fromInteger(valueOf(TotalData64B)) ) begin
-				dramReaderCnt <= 0;
-				dramReaderOn <= False;
-				$write("\033[1;33mCycle %1d -> \033[1;33m[HwMain]: \033[0m: Read data \033[1;32mdone!\033[0m\n",cycleCount);
-			end else begin
-				dramReaderCnt <= dramReaderCnt + 1;
-			end
-		end else begin
-			dramArbiter.users[0].cmd(0, fromInteger(valueOf(TotalData64B)), False);
-			dramReaderCnt <= dramReaderCnt + 1;
-			$write("\033[1;33mCycle %1d -> \033[1;33m[HwMain]: \033[0m: Read data \033[1;32mstart!\033[0m\n",cycleCount);
+			haversine.dataInPointALon(d);
+		end else if ( off == 2 ) begin
+			haversine.dataInPointBLat(d);
+		end else if ( off == 3 ) begin
+			haversine.dataInPointBLon(d);
+			$write("\033[1;33mCycle %1d -> \033[1;33m[HwMain]: \033[0m: Computation \033[1;32mstart!\033[0m\n", cycleCount);
 		end
 	endrule
 	//--------------------------------------------------------------------------------------------
 	// Haversine Formula
 	//--------------------------------------------------------------------------------------------
-	Reg#(Bit#(1)) multiplexer <- mkReg(0);
-	rule sendData;
-		let data <- serializer64b.get;
-		if ( multiplexer == 0 ) begin
-			haversine.dataInPointA(data);
-			multiplexer <= multiplexer + 1;
-		end else begin
-			haversine.dataInPointB(data);
-			multiplexer <= 0;
-		end
-	endrule
-	FIFOF#(Bit#(32)) resultQ <- mkFIFOF;
+	FIFOF#(Bit#(32)) resultQ <- mkSizedFIFOF(16);
 	Reg#(Bit#(32)) resultCnt <- mkReg(0);
 	rule getResult;
 		let r <- haversine.resultOut;
@@ -174,7 +107,7 @@ module mkHwMain#(PcieUserIfc pcie, DRAMUserIfc dram)
 		cycleQ.enq(cycleCount);
 		if ( resultCnt == 3 ) begin
 			resultCnt <= 0;
-			$write("\033[1;33mCycle %1d -> \033[1;33m[HwMain]: \033[0m: Computation \033[1;32mdone!\033[0m\n",cycleCount);
+			$write("\033[1;33mCycle %1d -> \033[1;33m[HwMain]: \033[0m: All Computation \033[1;32mdone!\033[0m\n",cycleCount);
 		end else begin
 			resultCnt <= resultCnt + 1;
 		end
