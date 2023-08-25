@@ -14,8 +14,8 @@
 #define NOISE -2
 #define FAILURE -3
 
-#define MINIMUM_POINTS 2
-#define EPSILON 8000.00
+#define MINIMUM_POINTS 4
+#define EPSILON 2000.00
 
 #define NUMPOINTS 44691
 
@@ -36,6 +36,8 @@ int clusterNeighbours[NUMPOINTS];
 
 uint16_t clusterSeedsSize = 0;
 uint16_t clusterNeighboursSize = 0;
+
+int numHaversine = 0;
 
 
 // Elapsed time checker
@@ -64,6 +66,7 @@ void readBenchmarkData(char* filename) {
 
 // Haversine
 float haversine(const Point pointCore, const Point pointTarget ) {
+	numHaversine++;
 	// Distance between latitudes and longitudes
 	float dlat = (pointTarget.lat-pointCore.lat)*TO_RADIAN;
 	float dlon = (pointTarget.lon-pointCore.lon)*TO_RADIAN;
@@ -139,31 +142,35 @@ int expandCluster(Point point, int clusterID) {
 }
 
 // DBSCAN main
-void run() {
+int run() {
 	int clusterID = 1;
 	for( int i = 0; i < NUMPOINTS; i ++ ) {
 		if ( m_points[i].clusterID == UNCLASSIFIED ) {
 			if ( expandCluster(m_points[i], clusterID) != FAILURE ) clusterID += 1;
 		}
 	}
+
+	return clusterID-1;
 }
 
 // Function for printing results
 void printResults() {
 	int i = 0;
 
-	printf("Number of points: %u\n"
-	       " x     y     cluster_id\n"
-	       "-----------------------\n", NUMPOINTS);
+	printf(" x       y       cluster_id\n"
+	       "---------------------------\n");
 
 	while (i < NUMPOINTS) {
-		printf("%f %f: %d\n", m_points[i].lat, m_points[i].lon, m_points[i].clusterID);
+		printf("%f, %f: %d\n", m_points[i].lat, m_points[i].lon, m_points[i].clusterID);
 		++i;
 	}
+
+	printf( "--------------------------\n" );
+	printf( "Number of Points  : %d\n", NUMPOINTS );
 }
 
 int main() {
-	char benchmark_filename[] = "../worldcities.bin";
+	char benchmark_filename[] = "../../worldcities.bin";
 
 	// read point data
 	readBenchmarkData(benchmark_filename);
@@ -171,7 +178,7 @@ int main() {
 	// main loop
 	printf( "Pure DBSCAN Clustering for 44691 Cities Start!\n" );
 	double processStart = timeCheckerCPU();
-	run();
+	int maxClusterID = run();
 	double processFinish = timeCheckerCPU();
 	double processTime = processFinish - processStart;
 	printf( "Pure DBSCAN Clustering for 44691 Cities Done!\n" );
@@ -179,7 +186,9 @@ int main() {
 
 	// result of DBSCAN algorithm
 	printResults();    
-	printf( "Elapsed Time (CPU): %.2f\n", processTime );
+	printf( "Elapsed Time (CPU): %.8f\n", processTime );
+	printf( "Max Cluster ID    : %d\n", maxClusterID );
+	printf( "Num of Haversine  : %d\n", numHaversine );
 
 	return 0;
 }
