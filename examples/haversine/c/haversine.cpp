@@ -67,9 +67,24 @@ int main(int argc, char **argv)
 	readBenchmarkData(cities, benchmark_filename, numCities);
 	
 	// Haversine formula
+	// Pure DBSCAN
+	/*int pureDBSCAN = 1997285481;
 	double processStart = timeCheckerCPU();
-	for ( int i = 0; i < 39899942; i ++ ) {
-		haversine(cities[0], cities[1]);
+	for ( int i = 0; i < pureDBSCAN/44691; i ++ ) {
+		for ( int j = 0; j < 44691; j ++ ) {
+			haversine(cities[0], cities[j]);
+		}
+	}*/
+	// Quadtree-based DBSCAN
+	int quadtreeDBSCAN = 39899942;
+	double processStart = timeCheckerCPU();
+	for ( int i = 0; i < 892; i ++ ) {
+		for ( int j = 0; j < 44691; j ++ ) {
+			haversine(cities[0], cities[j]);
+		}
+	}
+	for ( int i = 0; i < 35570; i ++ ) {
+		haversine(cities[0], cities[i]);
 	}
 	double processFinish = timeCheckerCPU();
 	double processTime = processFinish - processStart;
