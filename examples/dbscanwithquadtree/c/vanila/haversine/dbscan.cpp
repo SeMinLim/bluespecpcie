@@ -23,6 +23,9 @@
 #define TO_RADIAN (3.1415926536 / 180)
 
 
+int numHaversine = 0;
+
+
 typedef struct Point {
 	float lat, lon; // latitude & longitude
 	int clusterID; 	// Cluster ID
@@ -71,6 +74,7 @@ void readBenchmarkData(std::vector<Cluster> &quadrants, char* filename, int leng
 
 // Haversine
 float haversine(const Point pointCore, const Point pointTarget) {
+	numHaversine++;
 	// Distance between latitudes and longitudes
 	float dlat = (pointTarget.lat-pointCore.lat)*TO_RADIAN;
 	float dlon = (pointTarget.lon-pointCore.lon)*TO_RADIAN;
@@ -382,11 +386,11 @@ int main() {
 	initialize(quadrants);
 	
 	// Quadtree
+	printf( "Quadtree-based DBSCAN Clustering for 44691 Cities Start!\n" );
+	double processStart = timeCheckerCPU();
 	quadtree(quadrants);
 
 	// DBSCAN
-	printf( "Quadtree-based DBSCAN Clustering for 44691 Cities Start!\n" );
-	double processStart = timeCheckerCPU();
 	int maxClusterID = dbscan(quadrants);
 	double processFinish = timeCheckerCPU();
 	double processTime = processFinish - processStart;
@@ -396,8 +400,9 @@ int main() {
 
 	// result of Quadtree-based DBSCAN algorithm
 	printResults(quadrants);
-	printf( "Elapsed Time (CPU): %.6f\n", processTime );
+	printf( "Elapsed Time (CPU): %.8f\n", processTime );
 	printf( "Max Cluster ID    : %d\n", maxClusterID );
+	printf( "Num of Haversine  : %d\n", numHaversine );
 
 	return 0;
 }
