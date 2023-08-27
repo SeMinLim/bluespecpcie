@@ -5,8 +5,6 @@ import Vector::*;
 
 import FloatingPoint::*;
 import Float32::*;
-import Float64::*;
-import Trigonometric32::*;
 
 
 interface CosineSimilarityIfc;

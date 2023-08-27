@@ -5,8 +5,11 @@ import Vector::*;
 
 import FloatingPoint::*;
 import Float32::*;
-import Float64::*;
-import Trigonometric32::*;
+
+import Cordic::*;
+
+import TypeConverter::*;
+import ArcSin::*;
 
 
 interface HaversineIfc;
@@ -53,9 +56,11 @@ module mkHaversine(HaversineIfc);
 	FpPairIfc#(32) formula_add <- mkFpAdd32;
 	FpFilterIfc#(32) formula_sqrt <- mkFpSqrt32;
 
-	Vector#(2, TrigonoIfc) formula_sin <- replicateM(mkTrigonoSin32);
-	Vector#(2, TrigonoIfc) formula_cos <- replicateM(mkTrigonoCos32);
-	TrigonoIfc formula_asin <- mkTrigonoAsin32;
+	Vector#(5, FixedToFloat2IntIfc) fixedtofloat2i <- replicateM(mkFixedToFloat2Int);
+	Vector#(4, FloatToFixed3IntIfc) floattofixed3i <- replicateM(mkFloatToFixed3Int);
+	Vector#(2, CordicSinCosIfc) formula_sin <- replicateM(mkCordicSinCos);
+	Vector#(2, CordicSinCosIfc) formula_cos <- replicateM(mkCordicSinCos);
+	ArcSinIfc formula_asin <- mkArcSin;
 
 	// lat1 = lat1 * toRadian
 	// lat2 = lat2 * toRadian
@@ -107,35 +112,76 @@ module mkHaversine(HaversineIfc);
 	endrule
 	rule formulaLat_sin;
 		formula_div[0].deq;
-		formula_sin[0].enq(formula_div[0].first);
+		floattofixed3i[0].enq(formula_div[0].first);
+	endrule
+	rule formulaLat_sin_floattofixed;
+		floattofixed3i[0].deq;
+		formula_sin[0].enq(floattofixed3i[0].first);
 	endrule
 	rule formulaLon_sin;
 		formula_div[1].deq;
-		formula_sin[1].enq(formula_div[1].first);
+		floattofixed3i[1].enq(formula_div[1].first);
+	endrule
+	rule formulaLon_sin_floattofixed;
+		floattofixed3i[1].deq;
+		formula_sin[1].enq(floattofixed3i[1].first);
 	endrule
 	rule formulaLat1_cos;
 		pointALatRad.deq;
-		formula_cos[0].enq(pointALatRad.first);
+		floattofixed3i[2].enq(pointALatRad.first);
+	endrule
+	rule formulaLat1_cos_floattofixed;
+		floattofixed3i[2].deq;
+		formula_cos[0].enq(floattofixed3i[2].first);
 	endrule
 	rule formulaLat2_cos;
 		pointBLatRad.deq;
-		formula_cos[1].enq(pointBLatRad.first);
+		floattofixed3i[3].enq(pointBLatRad.first);
+	endrule
+	rule formulaLat2_cos_floattofixed;
+		floattofixed3i[3].deq;
+		formula_cos[1].enq(floattofixed3i[3].first);
+	endrule
+	rule formulaLat_sin_fixedtofloat;
+		formula_sin[0].deq;
+		let sincos = formula_sin[0].first;
+		let sin = tpl_1(sincos);
+		fixedtofloat2i[0].enq(sin);
+	endrule
+	rule formulaLon_sin_fixedtofloat;
+		formula_sin[1].deq;
+		let sincos = formula_sin[1].first;
+		let sin = tpl_1(sincos);
+		fixedtofloat2i[1].enq(sin);
+	endrule
+	rule formulaLat1_cos_fixedtofloat;
+		formula_cos[0].deq;
+		let sincos = formula_cos[0].first;
+		let cos = tpl_2(sincos);
+		fixedtofloat2i[2].enq(cos);
+	endrule
+	rule formulaLat2_cos_fixedtofloat;
+		formula_cos[1].deq;
+		let sincos = formula_cos[1].first;
+		let cos = tpl_2(sincos);
+		fixedtofloat2i[3].enq(cos);
 	endrule
 	rule formulaLat_pow;
-		formula_sin[0].deq;
-		let s = formula_sin[0].first;
+		fixedtofloat2i[0].deq;
+		let s = fixedtofloat2i[0].first;
 		formula_mult[0].enq(s, s);
 	endrule
 	rule formulaLon_pow;
-		formula_sin[1].deq;
-		let s = formula_sin[1].first;
+		fixedtofloat2i[1].deq;
+		let s = fixedtofloat2i[1].first;
 		formula_mult[1].enq(s, s);
 	endrule
+
 	rule formulaFinal_1;
-		formula_cos[0].deq;
-		formula_cos[1].deq;
-		let cos_lat1 = formula_cos[0].first;
-		let cos_lat2 = formula_cos[1].first;
+		fixedtofloat2i[3].deq;
+		fixedtofloat2i[4].deq;
+		let cos_lat1 = fixedtofloat2i[3].first;
+		let cos_lat2 = fixedtofloat2i[4].first;
 		formula_mult[2].enq(cos_lat1, cos_lat2);
 	endrule
 	rule formulaFinal_2;
@@ -168,14 +214,19 @@ module mkHaversine(HaversineIfc);
 		let formulaFinal4 = formula_sqrt.first;
 		formula_asin.enq(formulaFinal4);
 	endrule
+	rule formulaFinal_5_type_convert;
+		formula_asin.deq;
+		let d = formula_asin.first;
+		fixedtofloat2i[4].enq(d);
+	endrule
 	rule formulaFinal_6;
 		Bit#(32) earthRadius = 32'b01000101110001110001100000000000;
 		Bit#(32) numTwo = 32'b01000000000000000000000000000000;
 		formula_mult[4].enq(earthRadius, numTwo);
 	endrule
 	rule formulaFinal_7;
-		formula_asin.deq;
-		let arcsin = formula_asin.first;
+		fixedtofloat2i[4].deq;
+		let arcsin = fixedtofloat2i[4].first;
 
 		formula_mult[4].deq;
 		formula_mult[5].enq(arcsin, formula_mult[4].first);

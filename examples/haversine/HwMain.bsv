@@ -10,8 +10,6 @@ import PcieCtrl::*;
 
 import FloatingPoint::*;
 import Float32::*;
-import Float64::*;
-import Trigonometric32::*;
 
 import Haversine::*;
 
@@ -28,21 +26,21 @@ module mkHwMain#(PcieUserIfc pcie)
 	Reset pcierst = pcie.user_rst;
 
 	// Cycle Counter
-	FIFOF#(Bit#(32)) cycleQ <- mkFIFOF;
-	Reg#(Bit#(32)) cycleCount <- mkReg(0);
-	Reg#(Bit#(32)) cycleStart <- mkReg(0);
-	Reg#(Bit#(32)) cycleEnd <- mkReg(0);
+	FIFOF#(Bit#(32)) cycleQ <- mkFIFOF(clocked_by pcieclk, reset_by pcierst);
+	Reg#(Bit#(32)) cycleCount <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
+	Reg#(Bit#(32)) cycleStart <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
+	Reg#(Bit#(32)) cycleEnd <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
 	rule incCycleCount;
 		cycleCount <= cycleCount + 1;
 	endrule
 
 	// Haversine Module
-	HaversineIfc haversine <- mkHaversine;
+	HaversineIfc haversine <- mkHaversine(clocked_by pcieclk, reset_by pcierst);
 
 	// Preamble
-	FpPairIfc#(32) preamble_div <- mkFpDiv32;
-	Reg#(Bit#(32)) toRadian <- mkReg(0);
-	Reg#(Bool) getPreambleDone <- mkReg(False);
+	FpPairIfc#(32) preamble_div <- mkFpDiv32(clocked_by pcieclk, reset_by pcierst);
+	Reg#(Bit#(32)) toRadian <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
+	Reg#(Bool) getPreambleDone <- mkReg(False, clocked_by pcieclk, reset_by pcierst);
 	rule getPreamble_1( !getPreambleDone ); // toRadian = (3.1415926536 / 180)
 		Bit#(32) pi = 32'b01000000010010010000111111011010;
 		Bit#(32) degree = 32'b01000011001101000000000000000000;
@@ -58,9 +56,9 @@ module mkHwMain#(PcieUserIfc pcie)
 	//--------------------------------------------------------------------------------------
 	// Pcie Read and Write
 	//--------------------------------------------------------------------------------------
-	SyncFIFOIfc#(Tuple2#(IOReadReq, Bit#(32))) pcieRespQ <- mkSyncFIFOFromCC(512, pcieclk);
-	SyncFIFOIfc#(IOReadReq) pcieReadReqQ <- mkSyncFIFOToCC(512, pcieclk, pcierst);
-	SyncFIFOIfc#(IOWrite) pcieWriteQ <- mkSyncFIFOToCC(512, pcieclk, pcierst);
+	FIFO#(Tuple2#(IOReadReq, Bit#(32))) pcieRespQ <- mkFIFO(clocked_by pcieclk, reset_by pcierst);
+	FIFO#(IOReadReq) pcieReadReqQ <- mkFIFO(clocked_by pcieclk, reset_by pcierst);
+	FIFO#(IOWrite) pcieWriteQ <- mkFIFO(clocked_by pcieclk, reset_by pcierst);
 	rule getReadReq;
 		let r <- pcie.dataReq;
 		pcieReadReqQ.enq(r);
@@ -99,8 +97,8 @@ module mkHwMain#(PcieUserIfc pcie)
 	//--------------------------------------------------------------------------------------------
 	// Haversine Formula
 	//--------------------------------------------------------------------------------------------
-	FIFOF#(Bit#(32)) resultQ <- mkSizedFIFOF(16);
-	Reg#(Bit#(32)) resultCnt <- mkReg(0);
+	FIFOF#(Bit#(32)) resultQ <- mkSizedFIFOF(16, clocked_by pcieclk, reset_by pcierst);
+	Reg#(Bit#(32)) resultCnt <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
 	rule getResult;
 		let r <- haversine.resultOut;
 		resultQ.enq(r);

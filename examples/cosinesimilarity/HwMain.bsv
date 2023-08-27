@@ -10,8 +10,6 @@ import PcieCtrl::*;
 
 import FloatingPoint::*;
 import Float32::*;
-import Float64::*;
-import Trigonometric32::*;
 
 import CosineSimilarity::*;
 
@@ -28,22 +26,22 @@ module mkHwMain#(PcieUserIfc pcie)
 	Reset pcierst = pcie.user_rst;
 
 	// Cycle Counter
-	FIFOF#(Bit#(32)) cycleQ <- mkFIFOF;
-	Reg#(Bit#(32)) cycleCount <- mkReg(0);
-	Reg#(Bit#(32)) cycleStart <- mkReg(0);
-	Reg#(Bit#(32)) cycleEnd <- mkReg(0);
+	FIFOF#(Bit#(32)) cycleQ <- mkFIFOF(clocked_by pcieclk, reset_by pcierst);
+	Reg#(Bit#(32)) cycleCount <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
+	Reg#(Bit#(32)) cycleStart <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
+	Reg#(Bit#(32)) cycleEnd <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
 	rule incCycleCount;
 		cycleCount <= cycleCount + 1;
 	endrule
 
 	// Cosine Similarity Module
-	CosineSimilarityIfc cosinesimilarity <- mkCosineSimilarity;
+	CosineSimilarityIfc cosinesimilarity <- mkCosineSimilarity(clocked_by pcieclk, reset_by pcierst);
 	//--------------------------------------------------------------------------------------
 	// Pcie Read and Write
 	//--------------------------------------------------------------------------------------
-	SyncFIFOIfc#(Tuple2#(IOReadReq, Bit#(32))) pcieRespQ <- mkSyncFIFOFromCC(512, pcieclk);
-	SyncFIFOIfc#(IOReadReq) pcieReadReqQ <- mkSyncFIFOToCC(512, pcieclk, pcierst);
-	SyncFIFOIfc#(IOWrite) pcieWriteQ <- mkSyncFIFOToCC(512, pcieclk, pcierst);
+	FIFO#(Tuple2#(IOReadReq, Bit#(32))) pcieRespQ <- mkSizedFIFO(16, clocked_by pcieclk, reset_by pcierst);
+	FIFO#(IOReadReq) pcieReadReqQ <- mkSizedFIFO(16, clocked_by pcieclk, reset_by pcierst);
+	FIFO#(IOWrite) pcieWriteQ <- mkSizedFIFO(16, clocked_by pcieclk, reset_by pcierst);
 	rule getReadReq;
 		let r <- pcie.dataReq;
 		pcieReadReqQ.enq(r);
@@ -82,8 +80,8 @@ module mkHwMain#(PcieUserIfc pcie)
 	//--------------------------------------------------------------------------------------------
 	// Cosine Similarity
 	//--------------------------------------------------------------------------------------------
-	FIFOF#(Bit#(32)) resultQ <- mkFIFOF;
-	Reg#(Bit#(32)) resultCnt <- mkReg(0);
+	FIFOF#(Bit#(32)) resultQ <- mkFIFOF(clocked_by pcieclk, reset_by pcierst);
+	Reg#(Bit#(32)) resultCnt <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
 	rule getResult;
 		let r <- cosinesimilarity.resultOut;
 		resultQ.enq(r);

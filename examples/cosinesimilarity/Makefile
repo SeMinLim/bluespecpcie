@@ -8,5 +8,3 @@ CUSTOMBSV= -p +:$(BLIBPATH)/
 CUSTOMCPP_BSIM= $(BLIBPATH)/bdpi.cpp
 
 include $(BUILDTOOLS)/Makefile.base
-
-
