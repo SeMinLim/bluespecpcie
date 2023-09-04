@@ -15,8 +15,8 @@
 #define NOISE -2
 #define FAILURE -3
 
-#define MINIMUM_POINTS 4
-#define EPSILON 1300
+#define MINIMUM_POINTS 2
+#define EPSILON 500
 
 // Haversine
 #define EARTH_RADIUS 6371
@@ -596,13 +596,13 @@ int main() {
 
 	// result of Quadtree-based DBSCAN algorithm
 	printResults(dataset);
-	printf( "Elapsed Time [Step1] (CPU): %.8f\n", processTimeStep1 );
-	printf( "Elapsed Time [Step2] (CPU): %.8f\n", processTimeStep2 );
-	printf( "Elapsed Time [Step3] (CPU): %.8f\n", processTimeStep3 );
-	printf( "The Number of Data Points : %d\n", (int)dataset.size() );
-	printf( "The Number of Quadrants   : %d\n", numQuadrants );
-	printf( "The Number of Haversine   : %d\n", numHaversine );
-	printf( "Max Cluster ID            : %d\n", maxClusterID );
+	printf( "Elapsed Time [Step1] [Epsilon Box] (CPU): %.8f\n", processTimeStep1 );
+	printf( "Elapsed Time [Step2] [Quadtree] (CPU)   : %.8f\n", processTimeStep2 );
+	printf( "Elapsed Time [Step3] [DBSCAN] (CPU)     : %.8f\n", processTimeStep3 );
+	printf( "The Number of Data Points               : %d\n", (int)dataset.size() );
+	printf( "The Number of Quadrants                 : %d\n", numQuadrants );
+	printf( "The Number of Haversine                 : %d\n", numHaversine );
+	printf( "Max Cluster ID                          : %d\n", maxClusterID );
 	
 	return 0;
 }
