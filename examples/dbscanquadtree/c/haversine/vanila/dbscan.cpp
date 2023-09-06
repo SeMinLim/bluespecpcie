@@ -69,7 +69,7 @@ static inline double timeCheckerCPU(void) {
 
 // Function for reading benchmark file
 // Quadrant
-void readBenchmarkDataQuadTree(Quadrant &root, char* filename, int length) {
+void readBenchmarkDataQuadTree(Quadrant *root, char* filename, int length) {
 	FILE *f_data = fopen(filename, "rb");
 	if( f_data == NULL ) {
 		printf( "File not found: %s\n", filename );
@@ -86,10 +86,10 @@ void readBenchmarkDataQuadTree(Quadrant &root, char* filename, int length) {
 		temp.point.lat = lat;
 		temp.point.lon = lon;
 		temp.datasetID = datasetID;
-		root.cities.push_back(temp);
+		root->cities.push_back(temp);
 	}
 
-	root.done = 0;
+	root->done = 0;
 	
 	fclose(f_data);
 }
@@ -164,95 +164,95 @@ void findEdgePointsEpsilonBox(std::vector<PointDBSCAN> &dataset) {
 }
 
 // Function for four edge points of quadrant
-void findEdgePointsQuadrant(Quadrant &root) {
+void findEdgePointsQuadrant(Quadrant *root) {
 	// First child quad
-	root.child[0].northEastern.lat = root.center.lat;
-	root.child[0].northEastern.lon = root.center.lon;
-	root.child[0].northWestern.lat = root.southWestern.lat;
-	root.child[0].northWestern.lon = root.center.lon;
-	root.child[0].southEastern.lat = root.center.lat;
-	root.child[0].southEastern.lon = root.southWestern.lon;
-	root.child[0].southWestern.lat = root.southWestern.lat;
-	root.child[0].southWestern.lon = root.southWestern.lon;
+	root->child[0].northEastern.lat = root->center.lat;
+	root->child[0].northEastern.lon = root->center.lon;
+	root->child[0].northWestern.lat = root->southWestern.lat;
+	root->child[0].northWestern.lon = root->center.lon;
+	root->child[0].southEastern.lat = root->center.lat;
+	root->child[0].southEastern.lon = root->southWestern.lon;
+	root->child[0].southWestern.lat = root->southWestern.lat;
+	root->child[0].southWestern.lon = root->southWestern.lon;
 
 	// Second child quad
-	root.child[1].northEastern.lat = root.northEastern.lat;
-	root.child[1].northEastern.lon = root.center.lon;
-	root.child[1].northWestern.lat = root.center.lat;
-	root.child[1].northWestern.lon = root.center.lon;
-	root.child[1].southEastern.lat = root.northEastern.lat;
-	root.child[1].southEastern.lon = root.southWestern.lon;
-	root.child[1].southWestern.lat = root.center.lat;
-	root.child[1].southWestern.lon = root.southWestern.lon;
+	root->child[1].northEastern.lat = root->northEastern.lat;
+	root->child[1].northEastern.lon = root->center.lon;
+	root->child[1].northWestern.lat = root->center.lat;
+	root->child[1].northWestern.lon = root->center.lon;
+	root->child[1].southEastern.lat = root->northEastern.lat;
+	root->child[1].southEastern.lon = root->southWestern.lon;
+	root->child[1].southWestern.lat = root->center.lat;
+	root->child[1].southWestern.lon = root->southWestern.lon;
 
 	// Third child quad
-	root.child[2].northEastern.lat = root.center.lat;
-	root.child[2].northEastern.lon = root.northEastern.lon;
-	root.child[2].northWestern.lat = root.southWestern.lat;
-	root.child[2].northWestern.lon = root.northEastern.lon;
-	root.child[2].southEastern.lat = root.center.lat;
-	root.child[2].southEastern.lon = root.center.lon;
-	root.child[2].southWestern.lat = root.southWestern.lat;
-	root.child[2].southWestern.lon = root.center.lon;
+	root->child[2].northEastern.lat = root->center.lat;
+	root->child[2].northEastern.lon = root->northEastern.lon;
+	root->child[2].northWestern.lat = root->southWestern.lat;
+	root->child[2].northWestern.lon = root->northEastern.lon;
+	root->child[2].southEastern.lat = root->center.lat;
+	root->child[2].southEastern.lon = root->center.lon;
+	root->child[2].southWestern.lat = root->southWestern.lat;
+	root->child[2].southWestern.lon = root->center.lon;
 
 	// Fourth child quad
-	root.child[3].northEastern.lat = root.northEastern.lat;
-	root.child[3].northEastern.lon = root.northEastern.lon;
-	root.child[3].northWestern.lat = root.center.lat;
-	root.child[3].northWestern.lon = root.northEastern.lon;
-	root.child[3].southEastern.lat = root.northEastern.lat;
-	root.child[3].southEastern.lon = root.center.lon;
-	root.child[3].southWestern.lat = root.center.lat;
-	root.child[3].southWestern.lon = root.center.lon;
+	root->child[3].northEastern.lat = root->northEastern.lat;
+	root->child[3].northEastern.lon = root->northEastern.lon;
+	root->child[3].northWestern.lat = root->center.lat;
+	root->child[3].northWestern.lon = root->northEastern.lon;
+	root->child[3].southEastern.lat = root->northEastern.lat;
+	root->child[3].southEastern.lon = root->center.lon;
+	root->child[3].southWestern.lat = root->center.lat;
+	root->child[3].southWestern.lon = root->center.lon;
 }
 
 // Function for finding center mass value
-void findCenterMass(Quadrant &root) {
+void findCenterMass(Quadrant *root) {
 	float totalX = 0.00;
 	float totalY = 0.00;
-	for ( int i = 0; i < (int)root.cities.size(); i ++ ) {
-		totalX = totalX + root.cities[i].point.lat;
-		totalY = totalY + root.cities[i].point.lon;
+	for ( int i = 0; i < (int)root->cities.size(); i ++ ) {
+		totalX = totalX + root->cities[i].point.lat;
+		totalY = totalY + root->cities[i].point.lon;
 	}
-	root.center.lat = totalX / (float)root.cities.size();
-	root.center.lon = totalY / (float)root.cities.size();
+	root->center.lat = totalX / (float)root->cities.size();
+	root->center.lon = totalY / (float)root->cities.size();
 }
 
 // Function for finding a length of diagonal haversine distance
-void findDiagonal(Quadrant &root) {
-	root.diagonal = haversine(root.northEastern, root.southWestern);
+void findDiagonal(Quadrant *root) {
+	root->diagonal = haversine(root->northEastern, root->southWestern);
 }
 
 // Function for initialization
-void initialize(Quadrant &root) {
+void initialize(Quadrant *root) {
 	// Highest and lowest
-	for ( int i = 0; i < (int)root.cities.size(); i ++ ) {
+	for ( int i = 0; i < (int)root->cities.size(); i ++ ) {
 		if ( i == 0 ) {
-			root.southWestern.lat = root.cities[i].point.lat;
-			root.southWestern.lon = root.cities[i].point.lon;
-			root.northEastern.lat = root.cities[i].point.lat;
-			root.northEastern.lon = root.cities[i].point.lon;
+			root->southWestern.lat = root->cities[i].point.lat;
+			root->southWestern.lon = root->cities[i].point.lon;
+			root->northEastern.lat = root->cities[i].point.lat;
+			root->northEastern.lon = root->cities[i].point.lon;
 		} else {
-			if ( root.southWestern.lat > root.cities[i].point.lat ) {
-				root.southWestern.lat = root.cities[i].point.lat;
+			if ( root->southWestern.lat > root->cities[i].point.lat ) {
+				root->southWestern.lat = root->cities[i].point.lat;
 			}
-			if ( root.southWestern.lon > root.cities[i].point.lon ) {
-				root.southWestern.lon = root.cities[i].point.lon;
+			if ( root->southWestern.lon > root->cities[i].point.lon ) {
+				root->southWestern.lon = root->cities[i].point.lon;
 			}
-			if ( root.northEastern.lat < root.cities[i].point.lat ) {
-				root.northEastern.lat = root.cities[i].point.lat;
+			if ( root->northEastern.lat < root->cities[i].point.lat ) {
+				root->northEastern.lat = root->cities[i].point.lat;
 			}
-			if ( root.northEastern.lon < root.cities[i].point.lon ) {
-				root.northEastern.lon = root.cities[i].point.lon;
+			if ( root->northEastern.lon < root->cities[i].point.lon ) {
+				root->northEastern.lon = root->cities[i].point.lon;
 			}
 		}
 	}
 
 	// Other edge points
-	root.northWestern.lat = root.southWestern.lat;
-	root.northWestern.lon = root.northEastern.lon;
-	root.southEastern.lat = root.northEastern.lat;
-	root.southEastern.lon = root.southWestern.lon;
+	root->northWestern.lat = root->southWestern.lat;
+	root->northWestern.lon = root->northEastern.lon;
+	root->southEastern.lat = root->northEastern.lat;
+	root->southEastern.lon = root->southWestern.lon;
 
 	// Center mass of dataset
 	findCenterMass(root);
@@ -260,49 +260,49 @@ void initialize(Quadrant &root) {
 	// Diagonal haversine distance
 	findDiagonal(root);
 
-	if ( root.diagonal <= EPSILON ) root.done = 1;
+	if ( root->diagonal <= EPSILON ) root->done = 1;
 }
 
 // Quadtree (Insert new child quadrant to parent quadrant)
-void insertQuad(Quadrant &root) {
-	if ( root.done == 0 ) {
+void insertQuad(Quadrant *root) {
+	if ( root->done == 0 ) {
 		// Generate child quadrants first
-		root.child.resize(4);
+		root->child.resize(4);
 
 		// Divide
-		for ( int i = 0; i < (int)root.cities.size(); i ++ ) {
+		for ( int i = 0; i < (int)root->cities.size(); i ++ ) {
 			// First child quadrant
-			if ( (root.cities[i].point.lat < root.center.lat) && 
-			     (root.cities[i].point.lon < root.center.lon) ) {
-				int numPoints = root.child[0].cities.size();
-				root.child[0].cities.resize(numPoints+1);
-				root.child[0].cities[numPoints].point.lat = root.cities[i].point.lat;
-				root.child[0].cities[numPoints].point.lon = root.cities[i].point.lon;
-				root.child[0].cities[numPoints].datasetID = root.cities[i].datasetID;
+			if ( (root->cities[i].point.lat < root->center.lat) && 
+			     (root->cities[i].point.lon < root->center.lon) ) {
+				PointQuadTree temp;
+				temp.point.lat = root->cities[i].point.lat;
+				temp.point.lon = root->cities[i].point.lon;
+				temp.datasetID = root->cities[i].datasetID;
+				root->child[0].cities.push_back(temp);
 			// Second child quadrant
-			} else if ( (root.cities[i].point.lat >= root.center.lat) && 
-				    (root.cities[i].point.lon < root.center.lon) ) {
-				int numPoints = root.child[1].cities.size();
-				root.child[1].cities.resize(numPoints+1);
-				root.child[1].cities[numPoints].point.lat = root.cities[i].point.lat;
-				root.child[1].cities[numPoints].point.lon = root.cities[i].point.lon;
-				root.child[1].cities[numPoints].datasetID = root.cities[i].datasetID;
+			} else if ( (root->cities[i].point.lat >= root->center.lat) && 
+				    (root->cities[i].point.lon < root->center.lon) ) {
+				PointQuadTree temp;
+				temp.point.lat = root->cities[i].point.lat;
+				temp.point.lon = root->cities[i].point.lon;
+				temp.datasetID = root->cities[i].datasetID;
+				root->child[1].cities.push_back(temp);
 			// Third child quadrant
-			} else if ( (root.cities[i].point.lat < root.center.lat) && 
-				    (root.cities[i].point.lon >= root.center.lon) ) {
-				int numPoints = root.child[2].cities.size();
-				root.child[2].cities.resize(numPoints+1);
-				root.child[2].cities[numPoints].point.lat = root.cities[i].point.lat;
-				root.child[2].cities[numPoints].point.lon = root.cities[i].point.lon;
-				root.child[2].cities[numPoints].datasetID = root.cities[i].datasetID;
+			} else if ( (root->cities[i].point.lat < root->center.lat) && 
+				    (root->cities[i].point.lon >= root->center.lon) ) {
+				PointQuadTree temp;
+				temp.point.lat = root->cities[i].point.lat;
+				temp.point.lon = root->cities[i].point.lon;
+				temp.datasetID = root->cities[i].datasetID;
+				root->child[2].cities.push_back(temp);
 			// Fourth child quadrant
-			} else if ( (root.cities[i].point.lat >= root.center.lat) && 
-				    (root.cities[i].point.lon >= root.center.lon) ) {
-				int numPoints = root.child[3].cities.size();
-				root.child[3].cities.resize(numPoints+1);
-				root.child[3].cities[numPoints].point.lat = root.cities[i].point.lat;
-				root.child[3].cities[numPoints].point.lon = root.cities[i].point.lon;
-				root.child[3].cities[numPoints].datasetID = root.cities[i].datasetID;
+			} else if ( (root->cities[i].point.lat >= root->center.lat) && 
+				    (root->cities[i].point.lon >= root->center.lon) ) {
+				PointQuadTree temp;
+				temp.point.lat = root->cities[i].point.lat;
+				temp.point.lon = root->cities[i].point.lon;
+				temp.datasetID = root->cities[i].datasetID;
+				root->child[3].cities.push_back(temp);
 			}
 		}
 		
@@ -310,127 +310,127 @@ void insertQuad(Quadrant &root) {
 		findEdgePointsQuadrant(root);
 
 		// Center mass value and diagonal distance of each quadrant
-		for ( int i = 0; i < (int)root.child.size(); ) {
-			if ( root.child[i].cities.size() > 1 ) {
-				findCenterMass(root.child[i]);
-				findDiagonal(root.child[i]);
-				if ( root.child[i].diagonal <= EPSILON ) {
-					root.child[i].done = 1;
-					numDataPoints = numDataPoints + (int)root.child[i].cities.size();
+		for ( int i = 0; i < (int)root->child.size(); ) {
+			if ( root->child[i].cities.size() > 1 ) {
+				findCenterMass(&root->child[i]);
+				findDiagonal(&root->child[i]);
+				if ( root->child[i].diagonal <= EPSILON ) {
+					root->child[i].done = 1;
+					numDataPoints = numDataPoints + (int)root->child[i].cities.size();
 				}
 				i++;
-			} else if ( root.child[i].cities.size() == 1 ) {
-				findCenterMass(root.child[i]);
-				findDiagonal(root.child[i]);
-				root.child[i].done = 1;
-				numDataPoints = numDataPoints + (int)root.child[i].cities.size();
+			} else if ( root->child[i].cities.size() == 1 ) {
+				findCenterMass(&root->child[i]);
+				findDiagonal(&root->child[i]);
+				root->child[i].done = 1;
+				numDataPoints = numDataPoints + (int)root->child[i].cities.size();
 				i++;
-			} else root.child.erase(root.child.begin() + i);
+			} else root->child.erase(root->child.begin() + i);
 		}
 
 		// Count the total number of quadrants
-		numQuadrants = numQuadrants + (int)root.child.size();
+		numQuadrants = numQuadrants + (int)root->child.size();
 
 		// Go further
-		for ( int i = 0; i < (int)root.child.size(); i ++ ) {
-			if ( root.child[i].done == 0 ) insertQuad(root.child[i]);
+		for ( int i = 0; i < (int)root->child.size(); i ++ ) {
+			if ( root->child[i].done == 0 ) insertQuad(&root->child[i]);
 		}
 	}
 }
 
 // Quadtree (Main)
-void quadtree(Quadrant &root) {
+void quadtree(Quadrant *root) {
 	insertQuad(root);
 }
 
 // DBSCAN (Comparer between epsilon box and quadrant)
 // Check the epsilon box is in a quadrant first
-int compareEBinQ(std::vector<PointDBSCAN> &dataset, int index, Quadrant &root) {
+int compareEBinQ(std::vector<PointDBSCAN> &dataset, int index, Quadrant *root) {
 	int numPoints = 0;
-	if ( dataset[index].northEastern.lat >= root.southWestern.lat && 
-	     dataset[index].northEastern.lat <= root.northEastern.lat &&
-	     dataset[index].northEastern.lon >= root.southWestern.lon &&
-	     dataset[index].northEastern.lon <= root.northEastern.lon ) numPoints++;
-	if ( dataset[index].northWestern.lat >= root.southWestern.lat && 
-	     dataset[index].northWestern.lat <= root.northEastern.lat &&
-	     dataset[index].northWestern.lon >= root.southWestern.lon &&
-	     dataset[index].northWestern.lon <= root.northEastern.lon ) numPoints++;
-	if ( dataset[index].southEastern.lat >= root.southWestern.lat && 
-	     dataset[index].southEastern.lat <= root.northEastern.lat &&
-	     dataset[index].southEastern.lon >= root.southWestern.lon &&
-	     dataset[index].southEastern.lon <= root.northEastern.lon ) numPoints++;
-	if ( dataset[index].southWestern.lat >= root.southWestern.lat && 
-	     dataset[index].southWestern.lat <= root.northEastern.lat &&
-	     dataset[index].southWestern.lon >= root.southWestern.lon &&
-	     dataset[index].southWestern.lon <= root.northEastern.lon ) numPoints++;
+	if ( dataset[index].northEastern.lat >= root->southWestern.lat && 
+	     dataset[index].northEastern.lat <= root->northEastern.lat &&
+	     dataset[index].northEastern.lon >= root->southWestern.lon &&
+	     dataset[index].northEastern.lon <= root->northEastern.lon ) numPoints++;
+	if ( dataset[index].northWestern.lat >= root->southWestern.lat && 
+	     dataset[index].northWestern.lat <= root->northEastern.lat &&
+	     dataset[index].northWestern.lon >= root->southWestern.lon &&
+	     dataset[index].northWestern.lon <= root->northEastern.lon ) numPoints++;
+	if ( dataset[index].southEastern.lat >= root->southWestern.lat && 
+	     dataset[index].southEastern.lat <= root->northEastern.lat &&
+	     dataset[index].southEastern.lon >= root->southWestern.lon &&
+	     dataset[index].southEastern.lon <= root->northEastern.lon ) numPoints++;
+	if ( dataset[index].southWestern.lat >= root->southWestern.lat && 
+	     dataset[index].southWestern.lat <= root->northEastern.lat &&
+	     dataset[index].southWestern.lon >= root->southWestern.lon &&
+	     dataset[index].southWestern.lon <= root->northEastern.lon ) numPoints++;
 	return numPoints;
 }
 // Check the quadrant is in epsilon box
-int compareQinEB(std::vector<PointDBSCAN> &dataset, int index, Quadrant &root) {
+int compareQinEB(std::vector<PointDBSCAN> &dataset, int index, Quadrant *root) {
 	int numPoints = 0;
-	if ( root.northEastern.lat >= dataset[index].southWestern.lat && 
-	     root.northEastern.lat <= dataset[index].northEastern.lat &&
-	     root.northEastern.lon >= dataset[index].southWestern.lon &&
-	     root.northEastern.lon <= dataset[index].northEastern.lon ) numPoints++;
-	if ( root.northWestern.lat >= dataset[index].southWestern.lat && 
-	     root.northWestern.lat <= dataset[index].northEastern.lat &&
-	     root.northWestern.lon >= dataset[index].southWestern.lon &&
-	     root.northWestern.lon <= dataset[index].northEastern.lon ) numPoints++;
-	if ( root.southEastern.lat >= dataset[index].southWestern.lat && 
-	     root.southEastern.lat <= dataset[index].northEastern.lat &&
-	     root.southEastern.lon >= dataset[index].southWestern.lon &&
-	     root.southEastern.lon <= dataset[index].northEastern.lon ) numPoints++;
-	if ( root.southWestern.lat >= dataset[index].southWestern.lat && 
-	     root.southWestern.lat <= dataset[index].northEastern.lat &&
-	     root.southWestern.lon >= dataset[index].southWestern.lon &&
-	     root.southWestern.lon <= dataset[index].northEastern.lon ) numPoints++;
+	if ( root->northEastern.lat >= dataset[index].southWestern.lat && 
+	     root->northEastern.lat <= dataset[index].northEastern.lat &&
+	     root->northEastern.lon >= dataset[index].southWestern.lon &&
+	     root->northEastern.lon <= dataset[index].northEastern.lon ) numPoints++;
+	if ( root->northWestern.lat >= dataset[index].southWestern.lat && 
+	     root->northWestern.lat <= dataset[index].northEastern.lat &&
+	     root->northWestern.lon >= dataset[index].southWestern.lon &&
+	     root->northWestern.lon <= dataset[index].northEastern.lon ) numPoints++;
+	if ( root->southEastern.lat >= dataset[index].southWestern.lat && 
+	     root->southEastern.lat <= dataset[index].northEastern.lat &&
+	     root->southEastern.lon >= dataset[index].southWestern.lon &&
+	     root->southEastern.lon <= dataset[index].northEastern.lon ) numPoints++;
+	if ( root->southWestern.lat >= dataset[index].southWestern.lat && 
+	     root->southWestern.lat <= dataset[index].northEastern.lat &&
+	     root->southWestern.lon >= dataset[index].southWestern.lon &&
+	     root->southWestern.lon <= dataset[index].northEastern.lon ) numPoints++;
 	return numPoints;
 }
 // Check epsilon box and quadrant are overlapped each other
-int compareOverlap(std::vector<PointDBSCAN> &dataset, int index, Quadrant &root) {
+int compareOverlap(std::vector<PointDBSCAN> &dataset, int index, Quadrant *root) {
 	int numPoints = 0;
-	if ( dataset[index].northEastern.lat >= root.southWestern.lat &&
-	     dataset[index].northEastern.lat <= root.northEastern.lat &&
-	     root.northEastern.lon >= dataset[index].southWestern.lon &&
-	     root.northEastern.lon <= dataset[index].northEastern.lon) numPoints++;
-	if ( root.northEastern.lat >= dataset[index].southWestern.lat &&
-	     root.northEastern.lat <= dataset[index].northEastern.lat &&
-	     dataset[index].northEastern.lon >= root.southWestern.lon &&
-	     dataset[index].northEastern.lon <= root.northEastern.lon) numPoints++;
+	if ( dataset[index].northEastern.lat >= root->southWestern.lat &&
+	     dataset[index].northEastern.lat <= root->northEastern.lat &&
+	     root->northEastern.lon >= dataset[index].southWestern.lon &&
+	     root->northEastern.lon <= dataset[index].northEastern.lon) numPoints++;
+	if ( root->northEastern.lat >= dataset[index].southWestern.lat &&
+	     root->northEastern.lat <= dataset[index].northEastern.lat &&
+	     dataset[index].northEastern.lon >= root->southWestern.lon &&
+	     dataset[index].northEastern.lon <= root->northEastern.lon) numPoints++;
 	return numPoints;
 }
 
 // DBSCAN (Do haversine calculation based on candidate list)
-void candidateListCalculator(std::vector<PointDBSCAN> &dataset, int index, std::vector<int> &borders, Quadrant &root) {
-	if ( root.done == 0 ) {
-		for ( int i = 0; i < (int)root.child.size(); i ++ ) {
-			candidateListCalculator(dataset, index, borders, root.child[i]);
+void candidateListCalculator(std::vector<PointDBSCAN> &dataset, int index, std::vector<int> &borders, Quadrant *root) {
+	if ( root->done == 0 ) {
+		for ( int i = 0; i < (int)root->child.size(); i ++ ) {
+			candidateListCalculator(dataset, index, borders, &root->child[i]);
 		}
 	} else {
-		if ( root.diagonal <= EPSILON ) {
-			for ( int i = 0; i < (int)root.cities.size(); i ++ ) {
-				if ( haversine(dataset[index].point, root.cities[i].point) <= EPSILON ) {
-					for ( int j = 0; j < (int)root.cities.size(); j ++ ) {
-						borders.push_back(root.cities[j].datasetID);
+		if ( root->diagonal <= EPSILON ) {
+			for ( int i = 0; i < (int)root->cities.size(); i ++ ) {
+				if ( haversine(dataset[index].point, root->cities[i].point) <= EPSILON ) {
+					for ( int j = 0; j < (int)root->cities.size(); j ++ ) {
+						borders.push_back(root->cities[j].datasetID);
 					}
 					break;
 				}
 			}
 		} else {
-			if ( haversine(dataset[index].point, root.cities[0].point) <= EPSILON ) {
-				borders.push_back(root.cities[0].datasetID);
+			if ( haversine(dataset[index].point, root->cities[0].point) <= EPSILON ) {
+				borders.push_back(root->cities[0].datasetID);
 			}
 		}
 	}
 }
 
 // DBSCAN (Do make candidate list in case of quadrant is in epsilon box)
-void findQuadrantsQinEB(std::vector<PointDBSCAN> &dataset, int index, std::vector<int> &borders, Quadrant &root) {
+void findQuadrantsQinEB(std::vector<PointDBSCAN> &dataset, int index, std::vector<int> &borders, Quadrant *root) {
 	int resultQinEB = compareQinEB(dataset, index, root);
 	if ( resultQinEB == 1 || resultQinEB == 2 || resultQinEB == 3 ) {
-		if ( root.done == 0 ) {
-			for ( int i = 0; i < (int)root.child.size(); i ++ ) {
-				findQuadrantsQinEB(dataset, index, borders, root.child[i]);
+		if ( root->done == 0 ) {
+			for ( int i = 0; i < (int)root->child.size(); i ++ ) {
+				findQuadrantsQinEB(dataset, index, borders, &root->child[i]);
 			}
 		} else {
 			candidateListCalculator(dataset, index, borders, root);
@@ -441,16 +441,16 @@ void findQuadrantsQinEB(std::vector<PointDBSCAN> &dataset, int index, std::vecto
 }
 
 // DBSCAN (Do make candidate list in case of epsilon box is in quadrant)
-void findQuadrantsEBinQ(std::vector<PointDBSCAN> &dataset, int index, std::vector<int> &borders, Quadrant &root) {
+void findQuadrantsEBinQ(std::vector<PointDBSCAN> &dataset, int index, std::vector<int> &borders, Quadrant *root) {
 	int resultEBinQ = compareEBinQ(dataset, index, root);
 	if ( resultEBinQ != 0 ) {
-		if ( root.done == 1 ) {
+		if ( root->done == 1 ) {
 			candidateListCalculator(dataset, index, borders, root);
 		} else {
 			int resultQinEB = compareQinEB(dataset, index, root);
 			if ( resultQinEB == 0 ) {
-				for ( int i = 0; i < (int)root.child.size(); i ++ ) {
-					findQuadrantsEBinQ(dataset, index, borders, root.child[i]);
+				for ( int i = 0; i < (int)root->child.size(); i ++ ) {
+					findQuadrantsEBinQ(dataset, index, borders, &root->child[i]);
 				}
 			} else findQuadrantsQinEB(dataset, index, borders, root);
 		}
@@ -461,10 +461,10 @@ void findQuadrantsEBinQ(std::vector<PointDBSCAN> &dataset, int index, std::vecto
 		} else {
 			int resultPart3 = compareOverlap(dataset, index, root);
 			if ( resultPart3 != 0 ) {
-				if ( root.done == 1 ) candidateListCalculator(dataset, index, borders, root);
+				if ( root->done == 1 ) candidateListCalculator(dataset, index, borders, root);
 				else {
-					for ( int i = 0; i < (int)root.child.size(); i ++ ) {
-						findQuadrantsEBinQ(dataset, index, borders, root.child[i]);
+					for ( int i = 0; i < (int)root->child.size(); i ++ ) {
+						findQuadrantsEBinQ(dataset, index, borders, &root->child[i]);
 					}
 				}
 			}
@@ -473,19 +473,19 @@ void findQuadrantsEBinQ(std::vector<PointDBSCAN> &dataset, int index, std::vecto
 }
 
 // DBSCAN (Border Point Finder of Core Point)
-void borderFinderCore(std::vector<PointDBSCAN> &dataset, int corePoint, std::vector<int> &bordersCore, Quadrant &root) {
+void borderFinderCore(std::vector<PointDBSCAN> &dataset, int corePoint, std::vector<int> &bordersCore, Quadrant *root) {
 	bordersCore.clear();
 	findQuadrantsEBinQ(dataset, corePoint, bordersCore, root);
 }
 
 // DBSCAN (Border Point Finder of Border Point)
-void borderFinderBorder(std::vector<PointDBSCAN> &dataset, int borderPoint, std::vector<int> &bordersBorder, Quadrant &root) {
+void borderFinderBorder(std::vector<PointDBSCAN> &dataset, int borderPoint, std::vector<int> &bordersBorder, Quadrant *root) {
 	bordersBorder.clear();
 	findQuadrantsEBinQ(dataset, borderPoint, bordersBorder, root);
 }
 
 // DBSCAN (Cluster Expander)
-int clusterExpander(std::vector<PointDBSCAN> &dataset, int index, int clusterID, Quadrant &root) {
+int clusterExpander(std::vector<PointDBSCAN> &dataset, int index, int clusterID, Quadrant *root) {
 	std::vector<int> bordersCore;
 	std::vector<int> bordersBorder;
 	borderFinderCore(dataset, index, bordersCore, root);
@@ -526,7 +526,7 @@ int clusterExpander(std::vector<PointDBSCAN> &dataset, int index, int clusterID,
 }
 
 // DBSCAN (Main)
-int dbscan(std::vector<PointDBSCAN> &dataset, Quadrant &root) {
+int dbscan(std::vector<PointDBSCAN> &dataset, Quadrant *root) {
 	int clusterID = 1;
 	for ( int i = 0; i < (int)dataset.size(); i ++ ) {
 		if ( dataset[i].clusterID == UNCLASSIFIED ) {
@@ -564,7 +564,7 @@ int main() {
 	int numCities = 44691;
 
 	std::vector<PointDBSCAN> dataset;
-	Quadrant root;
+	Quadrant *root = new Quadrant;
 
 	// Read point data
 	char benchmark_filename[] = "../../../worldcities.bin";
