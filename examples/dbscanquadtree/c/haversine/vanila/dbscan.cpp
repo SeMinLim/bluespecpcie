@@ -77,11 +77,16 @@ void readBenchmarkDataQuadTree(Quadrant &root, char* filename, int length) {
 	}
 
 	for ( int i = 0; i < length; i ++ ) {
-		int numPoints = root.cities.size();
-		root.cities.resize(numPoints+1);
-		fread(&root.cities[i].point.lat, sizeof(float), 1, f_data);
-		fread(&root.cities[i].point.lon, sizeof(float), 1, f_data);
-		root.cities[i].datasetID = i;
+		PointQuadTree temp;
+		int datasetID = i;
+		float lat = 0.00;
+		float lon = 0.00;
+		fread(&lat, sizeof(float), 1, f_data);
+		fread(&lon, sizeof(float), 1, f_data);
+		temp.point.lat = lat;
+		temp.point.lon = lon;
+		temp.datasetID = datasetID;
+		root.cities.push_back(temp);
 	}
 
 	root.done = 0;
