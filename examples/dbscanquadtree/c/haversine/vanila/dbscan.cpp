@@ -335,10 +335,14 @@ void insertQuad(Quadrant *root) {
 		}
 
 		// Count the total number of quadrants
+<<<<<<< HEAD
 		if ( (int)root->child.size() > 0 ) {
 			numQuadrants = numQuadrants + (int)root->child.size();
 			std::vector<PointQuadTree>().swap(root->cities);
 		}
+=======
+		numQuadrants = numQuadrants + (int)root->child.size();
+>>>>>>> caa32e7e37a3f5b13038c8a3c1c510fa0670980e
 
 		// Go further
 		for ( int i = 0; i < (int)root->child.size(); i ++ ) {
