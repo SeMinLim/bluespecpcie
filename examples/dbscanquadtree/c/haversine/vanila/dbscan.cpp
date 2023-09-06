@@ -102,11 +102,16 @@ void readBenchmarkDataDBSCAN(std::vector<PointDBSCAN> &dataset, char* filename, 
 	}
 
 	for ( int i = 0; i < length; i ++ ) {
-		int numPoints = dataset.size();
-		dataset.resize(numPoints+1);
-		fread(&dataset[i].point.lat, sizeof(float), 1, f_data);
-		fread(&dataset[i].point.lon, sizeof(float), 1, f_data);
-		dataset[i].clusterID = UNCLASSIFIED;
+		PointDBSCAN temp;
+		int clusterID = UNCLASSIFIED;
+		float lat = 0.00;
+		float lon = 0.00;
+		fread(&lat, sizeof(float), 1, f_data);
+		fread(&lon, sizeof(float), 1, f_data);
+		temp.point.lat = lat;
+		temp.point.lon = lon;
+		temp.clusterID = clusterID;
+		dataset.push_back(temp);
 	}
 	
 	fclose(f_data);
