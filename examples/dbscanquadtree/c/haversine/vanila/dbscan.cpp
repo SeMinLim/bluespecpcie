@@ -48,7 +48,7 @@ typedef struct PointDBSCAN {
 }PointDBSCAN;
 
 typedef struct Quadrant {
-	std::vector<Quadrant> child;
+	std::vector<Quadrant*> child;
 	std::vector<PointQuadTree> cities;
 	Point northEastern;
 	Point northWestern;
@@ -166,44 +166,44 @@ void findEdgePointsEpsilonBox(std::vector<PointDBSCAN> &dataset) {
 // Function for four edge points of quadrant
 void findEdgePointsQuadrant(Quadrant *root) {
 	// First child quad
-	root->child[0].northEastern.lat = root->center.lat;
-	root->child[0].northEastern.lon = root->center.lon;
-	root->child[0].northWestern.lat = root->southWestern.lat;
-	root->child[0].northWestern.lon = root->center.lon;
-	root->child[0].southEastern.lat = root->center.lat;
-	root->child[0].southEastern.lon = root->southWestern.lon;
-	root->child[0].southWestern.lat = root->southWestern.lat;
-	root->child[0].southWestern.lon = root->southWestern.lon;
+	root->child[0]->northEastern.lat = root->center.lat;
+	root->child[0]->northEastern.lon = root->center.lon;
+	root->child[0]->northWestern.lat = root->southWestern.lat;
+	root->child[0]->northWestern.lon = root->center.lon;
+	root->child[0]->southEastern.lat = root->center.lat;
+	root->child[0]->southEastern.lon = root->southWestern.lon;
+	root->child[0]->southWestern.lat = root->southWestern.lat;
+	root->child[0]->southWestern.lon = root->southWestern.lon;
 
 	// Second child quad
-	root->child[1].northEastern.lat = root->northEastern.lat;
-	root->child[1].northEastern.lon = root->center.lon;
-	root->child[1].northWestern.lat = root->center.lat;
-	root->child[1].northWestern.lon = root->center.lon;
-	root->child[1].southEastern.lat = root->northEastern.lat;
-	root->child[1].southEastern.lon = root->southWestern.lon;
-	root->child[1].southWestern.lat = root->center.lat;
-	root->child[1].southWestern.lon = root->southWestern.lon;
+	root->child[1]->northEastern.lat = root->northEastern.lat;
+	root->child[1]->northEastern.lon = root->center.lon;
+	root->child[1]->northWestern.lat = root->center.lat;
+	root->child[1]->northWestern.lon = root->center.lon;
+	root->child[1]->southEastern.lat = root->northEastern.lat;
+	root->child[1]->southEastern.lon = root->southWestern.lon;
+	root->child[1]->southWestern.lat = root->center.lat;
+	root->child[1]->southWestern.lon = root->southWestern.lon;
 
 	// Third child quad
-	root->child[2].northEastern.lat = root->center.lat;
-	root->child[2].northEastern.lon = root->northEastern.lon;
-	root->child[2].northWestern.lat = root->southWestern.lat;
-	root->child[2].northWestern.lon = root->northEastern.lon;
-	root->child[2].southEastern.lat = root->center.lat;
-	root->child[2].southEastern.lon = root->center.lon;
-	root->child[2].southWestern.lat = root->southWestern.lat;
-	root->child[2].southWestern.lon = root->center.lon;
+	root->child[2]->northEastern.lat = root->center.lat;
+	root->child[2]->northEastern.lon = root->northEastern.lon;
+	root->child[2]->northWestern.lat = root->southWestern.lat;
+	root->child[2]->northWestern.lon = root->northEastern.lon;
+	root->child[2]->southEastern.lat = root->center.lat;
+	root->child[2]->southEastern.lon = root->center.lon;
+	root->child[2]->southWestern.lat = root->southWestern.lat;
+	root->child[2]->southWestern.lon = root->center.lon;
 
 	// Fourth child quad
-	root->child[3].northEastern.lat = root->northEastern.lat;
-	root->child[3].northEastern.lon = root->northEastern.lon;
-	root->child[3].northWestern.lat = root->center.lat;
-	root->child[3].northWestern.lon = root->northEastern.lon;
-	root->child[3].southEastern.lat = root->northEastern.lat;
-	root->child[3].southEastern.lon = root->center.lon;
-	root->child[3].southWestern.lat = root->center.lat;
-	root->child[3].southWestern.lon = root->center.lon;
+	root->child[3]->northEastern.lat = root->northEastern.lat;
+	root->child[3]->northEastern.lon = root->northEastern.lon;
+	root->child[3]->northWestern.lat = root->center.lat;
+	root->child[3]->northWestern.lon = root->northEastern.lon;
+	root->child[3]->southEastern.lat = root->northEastern.lat;
+	root->child[3]->southEastern.lon = root->center.lon;
+	root->child[3]->southWestern.lat = root->center.lat;
+	root->child[3]->southWestern.lon = root->center.lon;
 }
 
 // Function for finding center mass value
@@ -268,6 +268,9 @@ void insertQuad(Quadrant *root) {
 	if ( root->done == 0 ) {
 		// Generate child quadrants first
 		root->child.resize(4);
+		for ( int i = 0; i < 4; i ++ ) {
+			root->child[i] = new Quadrant;
+		}
 
 		// Divide
 		for ( int i = 0; i < (int)root->cities.size(); i ++ ) {
@@ -278,7 +281,7 @@ void insertQuad(Quadrant *root) {
 				temp.point.lat = root->cities[i].point.lat;
 				temp.point.lon = root->cities[i].point.lon;
 				temp.datasetID = root->cities[i].datasetID;
-				root->child[0].cities.push_back(temp);
+				root->child[0]->cities.push_back(temp);
 			// Second child quadrant
 			} else if ( (root->cities[i].point.lat >= root->center.lat) && 
 				    (root->cities[i].point.lon < root->center.lon) ) {
@@ -286,7 +289,7 @@ void insertQuad(Quadrant *root) {
 				temp.point.lat = root->cities[i].point.lat;
 				temp.point.lon = root->cities[i].point.lon;
 				temp.datasetID = root->cities[i].datasetID;
-				root->child[1].cities.push_back(temp);
+				root->child[1]->cities.push_back(temp);
 			// Third child quadrant
 			} else if ( (root->cities[i].point.lat < root->center.lat) && 
 				    (root->cities[i].point.lon >= root->center.lon) ) {
@@ -294,7 +297,7 @@ void insertQuad(Quadrant *root) {
 				temp.point.lat = root->cities[i].point.lat;
 				temp.point.lon = root->cities[i].point.lon;
 				temp.datasetID = root->cities[i].datasetID;
-				root->child[2].cities.push_back(temp);
+				root->child[2]->cities.push_back(temp);
 			// Fourth child quadrant
 			} else if ( (root->cities[i].point.lat >= root->center.lat) && 
 				    (root->cities[i].point.lon >= root->center.lon) ) {
@@ -302,7 +305,7 @@ void insertQuad(Quadrant *root) {
 				temp.point.lat = root->cities[i].point.lat;
 				temp.point.lon = root->cities[i].point.lon;
 				temp.datasetID = root->cities[i].datasetID;
-				root->child[3].cities.push_back(temp);
+				root->child[3]->cities.push_back(temp);
 			}
 		}
 		
@@ -311,21 +314,24 @@ void insertQuad(Quadrant *root) {
 
 		// Center mass value and diagonal distance of each quadrant
 		for ( int i = 0; i < (int)root->child.size(); ) {
-			if ( root->child[i].cities.size() > 1 ) {
-				findCenterMass(&root->child[i]);
-				findDiagonal(&root->child[i]);
-				if ( root->child[i].diagonal <= EPSILON ) {
-					root->child[i].done = 1;
-					numDataPoints = numDataPoints + (int)root->child[i].cities.size();
-				}
+			if ( root->child[i]->cities.size() > 1 ) {
+				findCenterMass(root->child[i]);
+				findDiagonal(root->child[i]);
+				if ( root->child[i]->diagonal <= EPSILON ) {
+					root->child[i]->done = 1;
+					numDataPoints = numDataPoints + (int)root->child[i]->cities.size();
+				} else root->child[i]->done = 0;
 				i++;
-			} else if ( root->child[i].cities.size() == 1 ) {
-				findCenterMass(&root->child[i]);
-				findDiagonal(&root->child[i]);
-				root->child[i].done = 1;
-				numDataPoints = numDataPoints + (int)root->child[i].cities.size();
+			} else if ( root->child[i]->cities.size() == 1 ) {
+				findCenterMass(root->child[i]);
+				findDiagonal(root->child[i]);
+				root->child[i]->done = 1;
+				numDataPoints = numDataPoints + (int)root->child[i]->cities.size();
 				i++;
-			} else root->child.erase(root->child.begin() + i);
+			} else {
+				delete(root->child[i]);
+				root->child.erase(root->child.begin() + i);
+			}
 		}
 
 		// Count the total number of quadrants
@@ -333,7 +339,7 @@ void insertQuad(Quadrant *root) {
 
 		// Go further
 		for ( int i = 0; i < (int)root->child.size(); i ++ ) {
-			if ( root->child[i].done == 0 ) insertQuad(&root->child[i]);
+			if ( root->child[i]->done == 0 ) insertQuad(root->child[i]);
 		}
 	}
 }
@@ -404,7 +410,7 @@ int compareOverlap(std::vector<PointDBSCAN> &dataset, int index, Quadrant *root)
 void candidateListCalculator(std::vector<PointDBSCAN> &dataset, int index, std::vector<int> &borders, Quadrant *root) {
 	if ( root->done == 0 ) {
 		for ( int i = 0; i < (int)root->child.size(); i ++ ) {
-			candidateListCalculator(dataset, index, borders, &root->child[i]);
+			candidateListCalculator(dataset, index, borders, root->child[i]);
 		}
 	} else {
 		if ( root->diagonal <= EPSILON ) {
@@ -430,7 +436,7 @@ void findQuadrantsQinEB(std::vector<PointDBSCAN> &dataset, int index, std::vecto
 	if ( resultQinEB == 1 || resultQinEB == 2 || resultQinEB == 3 ) {
 		if ( root->done == 0 ) {
 			for ( int i = 0; i < (int)root->child.size(); i ++ ) {
-				findQuadrantsQinEB(dataset, index, borders, &root->child[i]);
+				findQuadrantsQinEB(dataset, index, borders, root->child[i]);
 			}
 		} else {
 			candidateListCalculator(dataset, index, borders, root);
@@ -450,7 +456,7 @@ void findQuadrantsEBinQ(std::vector<PointDBSCAN> &dataset, int index, std::vecto
 			int resultQinEB = compareQinEB(dataset, index, root);
 			if ( resultQinEB == 0 ) {
 				for ( int i = 0; i < (int)root->child.size(); i ++ ) {
-					findQuadrantsEBinQ(dataset, index, borders, &root->child[i]);
+					findQuadrantsEBinQ(dataset, index, borders, root->child[i]);
 				}
 			} else findQuadrantsQinEB(dataset, index, borders, root);
 		}
@@ -464,7 +470,7 @@ void findQuadrantsEBinQ(std::vector<PointDBSCAN> &dataset, int index, std::vecto
 				if ( root->done == 1 ) candidateListCalculator(dataset, index, borders, root);
 				else {
 					for ( int i = 0; i < (int)root->child.size(); i ++ ) {
-						findQuadrantsEBinQ(dataset, index, borders, &root->child[i]);
+						findQuadrantsEBinQ(dataset, index, borders, root->child[i]);
 					}
 				}
 			}
