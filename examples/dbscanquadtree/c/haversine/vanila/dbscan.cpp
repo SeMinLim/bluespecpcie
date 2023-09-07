@@ -16,7 +16,7 @@
 #define FAILURE -3
 
 #define MINIMUM_POINTS 2
-#define EPSILON 500
+#define EPSILON 5
 
 // Haversine
 #define EARTH_RADIUS 6371
@@ -24,9 +24,9 @@
 #define TO_DEGREE (180 / 3.1415926536)
 
 
-int numDataPoints = 0;
-int numQuadrants = 0;
-int numHaversine = 0;
+uint64_t numDataPoints = 0;
+uint64_t numQuadrants = 0;
+uint64_t numHaversine = 0;
 
 
 typedef struct Point {
@@ -263,6 +263,75 @@ void initialize(Quadrant *root) {
 	if ( root->diagonal <= EPSILON ) root->done = 1;
 }
 
+// Quadtree (Divide parent quadrant to 4 childrent quadrant)
+void divideQuad(Quadrant *root) {
+	for ( int i = 0; i < (int)root->cities.size(); i ++ ) {
+		// First child quadrant
+		if ( (root->cities[i].point.lat < root->center.lat) && 
+		     (root->cities[i].point.lon < root->center.lon) ) {
+			PointQuadTree temp;
+			temp.point.lat = root->cities[i].point.lat;
+			temp.point.lon = root->cities[i].point.lon;
+			temp.datasetID = root->cities[i].datasetID;
+			root->child[0]->cities.push_back(temp);
+		// Second child quadrant
+		} else if ( (root->cities[i].point.lat >= root->center.lat) && 
+			    (root->cities[i].point.lon < root->center.lon) ) {
+			PointQuadTree temp;
+			temp.point.lat = root->cities[i].point.lat;
+			temp.point.lon = root->cities[i].point.lon;
+			temp.datasetID = root->cities[i].datasetID;
+			root->child[1]->cities.push_back(temp);
+		// Third child quadrant
+		} else if ( (root->cities[i].point.lat < root->center.lat) && 
+			    (root->cities[i].point.lon >= root->center.lon) ) {
+			PointQuadTree temp;
+			temp.point.lat = root->cities[i].point.lat;
+			temp.point.lon = root->cities[i].point.lon;
+			temp.datasetID = root->cities[i].datasetID;
+			root->child[2]->cities.push_back(temp);
+		// Fourth child quadrant
+		} else if ( (root->cities[i].point.lat >= root->center.lat) && 
+			    (root->cities[i].point.lon >= root->center.lon) ) {
+			PointQuadTree temp;
+			temp.point.lat = root->cities[i].point.lat;
+			temp.point.lon = root->cities[i].point.lon;
+			temp.datasetID = root->cities[i].datasetID;
+			root->child[3]->cities.push_back(temp);
+		}
+	}
+}
+
+// Quadtree (Get the needed information for each quadrant)
+void getInfoQuad(Quadrant *root) {
+	for ( int i = 0; i < (int)root->child.size(); ) {
+		if ( root->child[i]->cities.size() > 1 ) {
+			findCenterMass(root->child[i]);
+			findDiagonal(root->child[i]);
+			if ( root->child[i]->diagonal <= EPSILON ) {
+				root->child[i]->done = 1;
+				numDataPoints = numDataPoints + (int)root->child[i]->cities.size();
+			} else root->child[i]->done = 0;
+			i++;
+		} else if ( root->child[i]->cities.size() == 1 ) {
+			findCenterMass(root->child[i]);
+			findDiagonal(root->child[i]);
+			root->child[i]->done = 1;
+			numDataPoints = numDataPoints + (int)root->child[i]->cities.size();
+			i++;
+		} else {
+			delete(root->child[i]);
+			root->child.erase(root->child.begin() + i);
+		}
+	}
+	
+	// Count the total number of quadrants & delete parent's data
+	if ( (int)root->child.size() > 0 ) {
+		numQuadrants = numQuadrants + (int)root->child.size();
+		std::vector<PointQuadTree>().swap(root->cities);
+	}
+}
+
 // Quadtree (Insert new child quadrant to parent quadrant)
 void insertQuad(Quadrant *root) {
 	if ( root->done == 0 ) {
@@ -270,90 +339,63 @@ void insertQuad(Quadrant *root) {
 		root->child.resize(4);
 		for ( int i = 0; i < 4; i ++ ) {
 			root->child[i] = new Quadrant;
+			root->child[i]->diagonal = 0.00; 
+			root->child[i]->done = 0;
 		}
 
 		// Divide
-		for ( int i = 0; i < (int)root->cities.size(); i ++ ) {
-			// First child quadrant
-			if ( (root->cities[i].point.lat < root->center.lat) && 
-			     (root->cities[i].point.lon < root->center.lon) ) {
-				PointQuadTree temp;
-				temp.point.lat = root->cities[i].point.lat;
-				temp.point.lon = root->cities[i].point.lon;
-				temp.datasetID = root->cities[i].datasetID;
-				root->child[0]->cities.push_back(temp);
-			// Second child quadrant
-			} else if ( (root->cities[i].point.lat >= root->center.lat) && 
-				    (root->cities[i].point.lon < root->center.lon) ) {
-				PointQuadTree temp;
-				temp.point.lat = root->cities[i].point.lat;
-				temp.point.lon = root->cities[i].point.lon;
-				temp.datasetID = root->cities[i].datasetID;
-				root->child[1]->cities.push_back(temp);
-			// Third child quadrant
-			} else if ( (root->cities[i].point.lat < root->center.lat) && 
-				    (root->cities[i].point.lon >= root->center.lon) ) {
-				PointQuadTree temp;
-				temp.point.lat = root->cities[i].point.lat;
-				temp.point.lon = root->cities[i].point.lon;
-				temp.datasetID = root->cities[i].datasetID;
-				root->child[2]->cities.push_back(temp);
-			// Fourth child quadrant
-			} else if ( (root->cities[i].point.lat >= root->center.lat) && 
-				    (root->cities[i].point.lon >= root->center.lon) ) {
-				PointQuadTree temp;
-				temp.point.lat = root->cities[i].point.lat;
-				temp.point.lon = root->cities[i].point.lon;
-				temp.datasetID = root->cities[i].datasetID;
-				root->child[3]->cities.push_back(temp);
-			}
-		}
-		
+		divideQuad(root);
+
 		// Highest and lowest values of each quadrant
 		findEdgePointsQuadrant(root);
 
 		// Center mass value and diagonal distance of each quadrant
-		for ( int i = 0; i < (int)root->child.size(); ) {
-			if ( root->child[i]->cities.size() > 1 ) {
-				findCenterMass(root->child[i]);
-				findDiagonal(root->child[i]);
-				if ( root->child[i]->diagonal <= EPSILON ) {
-					root->child[i]->done = 1;
-					numDataPoints = numDataPoints + (int)root->child[i]->cities.size();
-				} else root->child[i]->done = 0;
-				i++;
-			} else if ( root->child[i]->cities.size() == 1 ) {
-				findCenterMass(root->child[i]);
-				findDiagonal(root->child[i]);
-				root->child[i]->done = 1;
-				numDataPoints = numDataPoints + (int)root->child[i]->cities.size();
-				i++;
-			} else {
-				delete(root->child[i]);
-				root->child.erase(root->child.begin() + i);
-			}
-		}
-
-		// Count the total number of quadrants
-<<<<<<< HEAD
-		if ( (int)root->child.size() > 0 ) {
-			numQuadrants = numQuadrants + (int)root->child.size();
-			std::vector<PointQuadTree>().swap(root->cities);
-		}
-=======
-		numQuadrants = numQuadrants + (int)root->child.size();
->>>>>>> caa32e7e37a3f5b13038c8a3c1c510fa0670980e
-
-		// Go further
-		for ( int i = 0; i < (int)root->child.size(); i ++ ) {
-			if ( root->child[i]->done == 0 ) insertQuad(root->child[i]);
-		}
-	}
+		getInfoQuad(root);
+	} else return;
 }
 
 // Quadtree (Main)
-void quadtree(Quadrant *root) {
+int quadtree(Quadrant *root) {
+	std::vector<Quadrant*> parentsCurr;
+	std::vector<Quadrant*> parentsNext;
+	parentsCurr.clear();
+	parentsCurr.shrink_to_fit();
+	parentsNext.clear();
+	parentsNext.shrink_to_fit();
+	int level = 0;
+
+	// Root quadrant
 	insertQuad(root);
+	if ( (int)root->child.size() > 0 ) {
+		for ( int i = 0; i < (int)root->child.size(); i ++ ) {
+			if ( root->child[i]->done == 0 ) parentsCurr.push_back(root->child[i]);
+		}
+	}
+	level++;
+
+	// Iteration until meeting the terminate conditions
+	while (1) {
+		parentsNext.clear();
+		parentsNext.shrink_to_fit();
+		for ( int i = 0; i < (int)parentsCurr.size(); i ++ ) {
+			insertQuad(parentsCurr[i]);
+			if ( (int)parentsCurr[i]->child.size() > 0 ) {
+				for ( int j = 0; j < (int)parentsCurr[i]->child.size(); j ++ ) {
+					if ( parentsCurr[i]->child[j]->done == 0 ) parentsNext.push_back(parentsCurr[i]->child[j]);
+				}
+			}
+		}
+		parentsCurr.clear();
+		parentsCurr.shrink_to_fit();
+		if ( (int)parentsNext.size() > 0 ) {
+			for ( int i = 0; i < (int)parentsNext.size(); i ++ ) {
+				parentsCurr.push_back(parentsNext[i]);
+			}
+		} else break;
+		level++;
+	}
+	
+	return level;
 }
 
 // DBSCAN (Comparer between epsilon box and quadrant)
@@ -488,12 +530,14 @@ void findQuadrantsEBinQ(std::vector<PointDBSCAN> &dataset, int index, std::vecto
 // DBSCAN (Border Point Finder of Core Point)
 void borderFinderCore(std::vector<PointDBSCAN> &dataset, int corePoint, std::vector<int> &bordersCore, Quadrant *root) {
 	bordersCore.clear();
+	bordersCore.shrink_to_fit();
 	findQuadrantsEBinQ(dataset, corePoint, bordersCore, root);
 }
 
 // DBSCAN (Border Point Finder of Border Point)
 void borderFinderBorder(std::vector<PointDBSCAN> &dataset, int borderPoint, std::vector<int> &bordersBorder, Quadrant *root) {
 	bordersBorder.clear();
+	bordersBorder.shrink_to_fit();
 	findQuadrantsEBinQ(dataset, borderPoint, bordersBorder, root);
 }
 
@@ -505,6 +549,7 @@ int clusterExpander(std::vector<PointDBSCAN> &dataset, int index, int clusterID,
 
 	if ( bordersCore.size() < MINIMUM_POINTS ) {
 		dataset[index].clusterID = NOISE;
+		std::vector<int>().swap(bordersCore);
 		return FAILURE;
 	} else {
 		for ( int i = 0; i < (int)bordersCore.size(); i ++ ) {
@@ -534,6 +579,8 @@ int clusterExpander(std::vector<PointDBSCAN> &dataset, int index, int clusterID,
 				}
 			}
 		}
+		std::vector<int>().swap(bordersCore);
+		std::vector<int>().swap(bordersBorder);
 		return SUCCESS;
 	}
 }
@@ -543,7 +590,10 @@ int dbscan(std::vector<PointDBSCAN> &dataset, Quadrant *root) {
 	int clusterID = 1;
 	for ( int i = 0; i < (int)dataset.size(); i ++ ) {
 		if ( dataset[i].clusterID == UNCLASSIFIED ) {
-			if ( clusterExpander(dataset, i, clusterID, root) != FAILURE ) clusterID += 1;
+			if ( clusterExpander(dataset, i, clusterID, root) != FAILURE ) {
+				clusterID += 1;
+				printf( "Generating cluster %d done!\n", clusterID-1 );
+			}
 		}
 	}
 
@@ -574,7 +624,7 @@ void printResults(std::vector<PointDBSCAN> &dataset) {
 
 // Main
 int main() {
-	int numCities = 44691;
+	int numCities = 700968*160;
 
 	std::vector<PointDBSCAN> dataset;
 	Quadrant *root = new Quadrant;
@@ -600,7 +650,7 @@ int main() {
 	// Quadtree
 	printf( "Quadtree for The World Cities Start!\n" );
 	double processStartStep2 = timeCheckerCPU();
-	quadtree(root);
+	int level = quadtree(root);
 	double processFinishStep2 = timeCheckerCPU();
 	double processTimeStep2 = processFinishStep2 - processStartStep2;
 	printf( "Quadtree for The World Cities Done!\n" );
@@ -618,14 +668,16 @@ int main() {
 	fflush( stdout );
 
 	// result of Quadtree-based DBSCAN algorithm
-	printResults(dataset);
+	//printResults(dataset);
 	printf( "Elapsed Time [Step1] [Epsilon Box] (CPU): %.8f\n", processTimeStep1 );
 	printf( "Elapsed Time [Step2] [Quadtree] (CPU)   : %.8f\n", processTimeStep2 );
 	printf( "Elapsed Time [Step3] [DBSCAN] (CPU)     : %.8f\n", processTimeStep3 );
-	printf( "The Number of Data Points               : %d\n", (int)dataset.size() );
-	printf( "The Number of Quadrants                 : %d\n", numQuadrants );
-	printf( "The Number of Haversine                 : %d\n", numHaversine );
+	printf( "The Number of Data Points               : %ld\n", numDataPoints );
+	printf( "The Maximum of Tree Level               : %d\n", level );
+	printf( "The Number of Quadrants                 : %ld\n", numQuadrants );
+	printf( "The Number of Haversine                 : %ld\n", numHaversine );
 	printf( "Max Cluster ID                          : %d\n", maxClusterID );
-	
+
+	delete(root);	
 	return 0;
 }
