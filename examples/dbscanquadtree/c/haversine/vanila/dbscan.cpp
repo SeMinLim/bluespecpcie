@@ -117,6 +117,19 @@ void readBenchmarkDataDBSCAN(std::vector<PointDBSCAN> &dataset, char* filename, 
 	fclose(f_data);
 }
 
+// Function for writing benchmark file
+void writeBenchmarkDataDBSCAN(std::vector<PointDBSCAN> &dataset, char* filename, int length) {
+	FILE* f_data = fopen(filename, "wb");
+
+	for ( int i = 0; i < length; i ++ ) {
+		fwrite(&dataset[i].point.lat, sizeof(float), 1, f_data);
+		fwrite(&dataset[i].point.lon, sizeof(float), 1, f_data);
+		fwrite(&dataset[i].clusterID, sizeof(int), 1, f_data);
+	}
+
+	fclose(f_data);
+}
+
 // Haversine
 float haversine(const Point pointCore, const Point pointTarget) {
 	numHaversine++;
@@ -630,7 +643,7 @@ int main() {
 	Quadrant *root = new Quadrant;
 
 	// Read point data
-	char benchmark_filename[] = "../../../worldcities.bin";
+	char benchmark_filename[] = "../../../worldcities_augmented.bin";
 	readBenchmarkDataDBSCAN(dataset, benchmark_filename, numCities);
 	readBenchmarkDataQuadTree(root, benchmark_filename, numCities);
 
@@ -667,7 +680,15 @@ int main() {
 	printf( "\n" );
 	fflush( stdout );
 
-	// result of Quadtree-based DBSCAN algorithm
+	// Save the result dataset as bin file
+	char resultDataset_filename[] = "../../../worldcities_result.bin";
+	printf( "Saving The Result Dataset Start!\n" );
+	writeBenchmarkDataDBSCAN(dataset, resultDataset_filename, numCities);
+	printf( "Saving The Result Dataset Done!\n" );
+	printf( "\n" );
+	fflush( stdout );
+	
+	// Result of Quadtree-based DBSCAN algorithm
 	//printResults(dataset);
 	printf( "Elapsed Time [Step1] [Epsilon Box] (CPU): %.8f\n", processTimeStep1 );
 	printf( "Elapsed Time [Step2] [Quadtree] (CPU)   : %.8f\n", processTimeStep2 );
