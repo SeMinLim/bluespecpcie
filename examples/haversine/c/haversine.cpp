@@ -8,6 +8,8 @@
 
 #define EARTH_RADIUS 6371
 #define TO_RADIAN (3.1415926536 / 180)
+#define TO_DEGREE (180 / 3.1415926536)
+#define EPSILON 5
 
 
 typedef struct Point {
@@ -56,34 +58,49 @@ float haversine(const Point pointCore, const Point pointTarget) {
 	return asin(sqrt(f)) * 2 * EARTH_RADIUS;
 }
 
+// Inverse haversine for latitude
+float inverseHaversineLat(const Point pointCore) {
+	float dlat_1km = 0.008992;
+	return dlat_1km * EPSILON;
+}
+
+// Inverse haversine for longitude
+float inverseHaversineLon(const Point pointCore) {
+	float sinFunc = sin((EPSILON * TO_RADIAN) / (2 * EARTH_RADIUS * TO_RADIAN));
+	float powFunc = pow(sinFunc, 2);
+	float secLat = 1 / cos(pointCore.lat * TO_RADIAN);
+	return (2 * asin(sqrt(powFunc * secLat * secLat))) * TO_DEGREE;
+}
+
+
 int main(int argc, char **argv)
 {
-	int numCities = 44691;
+	int numCities = 700968*160;
 
 	std::vector<Point> cities(1);
 
 	// Read point data
-	char benchmark_filename[] = "../worldcities.bin";
+	char benchmark_filename[] = "../worldcities_augmented.bin";
 	readBenchmarkData(cities, benchmark_filename, numCities);
-	
+
+	// Inverse Haversine
+	Point newPoint;
+	float dlat = inverseHaversineLat(cities[0]);	
+	float dlon = inverseHaversineLon(cities[0]);
+	newPoint.lat = cities[0].lat + dlat;
+	newPoint.lon = cities[0].lon + dlon;
+	float epsilon = haversine(cities[0], newPoint);
+	printf( "Distance: %f\n", epsilon );
+
 	// Haversine formula
-	// Pure DBSCAN
-	/*int pureDBSCAN = 1997285481;
-	double processStart = timeCheckerCPU();
-	for ( int i = 0; i < pureDBSCAN/44691; i ++ ) {
-		for ( int j = 0; j < 44691; j ++ ) {
-			haversine(cities[0], cities[j]);
-		}
-	}*/
 	// Quadtree-based DBSCAN
-	int quadtreeDBSCAN = 39899942;
 	double processStart = timeCheckerCPU();
-	for ( int i = 0; i < 892; i ++ ) {
-		for ( int j = 0; j < 44691; j ++ ) {
+	for ( int i = 0; i < 413; i ++ ) {
+		for ( int j = 0; j < 700968*160; j ++ ) {
 			haversine(cities[0], cities[j]);
 		}
 	}
-	for ( int i = 0; i < 35570; i ++ ) {
+	for ( int i = 0; i < 42931018; i ++ ) {
 		haversine(cities[0], cities[i]);
 	}
 	double processFinish = timeCheckerCPU();
