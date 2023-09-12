@@ -107,19 +107,25 @@ int main(int argc, char **argv)
 	char benchmark_filename[] = "../worldcities_augmented.bin";
 	readBenchmarkData(cities, benchmark_filename, numCities);
 	
-	// Inverse cosing similarity checking
+	// Inverse cosine similarity checking
 	Point tempLat;
 	Point tempLon;
 	Point point1 = inverseCosineSimilarityLat(cities[0]);
 	tempLat.lat = point1.lon;
 	tempLat.lon = cities[0].lon;
 	float cs1 = cosineSimilarity(cities[0], tempLat);
+	printf( "%f, %f\n", cities[0].lat, cities[0].lon );
+	printf( "%f, %f\n", point1.lat, tempLat.lon );
+	printf( "%f, %f\n", point1.lon, tempLat.lon );
 	printf( "%f\n", cs1 );
 
 	Point point2 = inverseCosineSimilarityLon(cities[0]);
 	tempLon.lat = cities[0].lat;
 	tempLon.lon = point2.lon;
 	float cs2 = cosineSimilarity(cities[0], tempLon);
+	printf( "%f, %f\n", cities[0].lat, cities[0].lon );
+	printf( "%f, %f\n", tempLon.lat, point2.lat );
+	printf( "%f, %f\n", tempLon.lat, point2.lon );
 	printf( "%f\n", cs2 );
 
 	// Cosine similarity
