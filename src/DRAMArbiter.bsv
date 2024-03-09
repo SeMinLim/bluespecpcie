@@ -1,6 +1,3 @@
-package DRAMArbiter;
-
-
 import FIFO::*;
 import FIFOF::*;
 import Vector::*;
@@ -18,6 +15,7 @@ endinterface
 interface DRAMArbiterIfc#(numeric type ways);
 	interface Vector#(ways, DRAMArbiterUserIfc) users;
 endinterface
+(* synthesize *)
 module mkDRAMArbiter#(DRAMUserIfc dram) (DRAMArbiterIfc#(ways));
 	
 	MergeNIfc#(ways, Tuple4#(Bit#(8), Bit#(64), Bit#(32), Bool)) cmdQ <- mkMergeN;
@@ -95,5 +93,3 @@ module mkDRAMArbiter#(DRAMUserIfc dram) (DRAMArbiterIfc#(ways));
 	end
 	interface users = users_;
 endmodule
-
-endpackage: DRAMArbiter
