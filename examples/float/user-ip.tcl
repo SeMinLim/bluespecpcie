@@ -1,2 +1,5 @@
-set libdir ../../../../bluelib/src/coregen/$boardname/
-source $libdir/../fp_import.tcl
+set fpcaldir ../../../../bluelib/src/coregen/vc707/
+
+############# Floating Point Stuff
+source fpcal/../fp_import.tcl
+############# Floating Point Stuff

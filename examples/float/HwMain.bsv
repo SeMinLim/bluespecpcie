@@ -8,123 +8,112 @@ import BRAMFIFO::*;
 
 import PcieCtrl::*;
 
+import FloatingPoint::*;
 import Float32::*;
-import Float64::*;
-import Cordic::*;
-import BLMacMSFP::*;
+import UINTtoFLOAT::*;
+
 
 interface HwMainIfc;
 endinterface
-
-
-(* synthesize *)
-module mkBLMacMSFP12_3_Fixed(BLMacMSFP12_3ChannelIfc);
-	BLMacMSFP12_3ChannelIfc pe <- mkBLMacMSFP12_3(53'h01abcb223c54a7d, 53'h01eccb634c5ae7d, 53'h01dc674c46d8c7a);
-	return pe;
-endmodule
-
-module mkHwMain#(PcieUserIfc pcie) 
-	(HwMainIfc);
-
+module mkHwMain#(PcieUserIfc pcie) (HwMainIfc);
 	Clock curClk <- exposeCurrentClock;
 	Reset curRst <- exposeCurrentReset;
 
 	Clock pcieclk = pcie.user_clk;
 	Reset pcierst = pcie.user_rst;
 
-	Reg#(Bit#(32)) dataBuffer0 <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
-	Reg#(Bit#(32)) dataBuffer1 <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
-	Reg#(Bit#(32)) writeCounter <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
+	FpPairIfc#(32) fpAdd <- mkFpAdd32;
+	FpPairIfc#(32) fpSub <- mkFpSub32;
+	FpPairIfc#(32) fpMul <- mkFpMult32;
+	FpPairIfc#(32) fpDiv <- mkFpDiv32;
+	UINTtoFLOATIfc typeConverter <- mkUINTtoFLOAT;
 
-	BLMacMSFP12_3ChannelIfc msfpe <- mkBLMacMSFP12_3_Fixed(clocked_by pcieclk, reset_by pcierst);
-
-	FpPairIfc#(64) mult <- mkFpMult64(clocked_by pcieclk, reset_by pcierst);
-	FpFilterIfc#(64) sqrt <- mkFpSqrt64(clocked_by pcieclk, reset_by pcierst);
-	CordicSinCosIfc sincos <- mkCordicSinCos(clocked_by pcieclk, reset_by pcierst);
-
-	Reg#(Bit#(64)) doubleResultBuffer <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
-	Reg#(Bit#(64)) doubleResultBuffer2 <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
-	Reg#(Bit#(32)) cordicResultBuffer <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
-
-
-	Reg#(Bit#(64)) doubleBuffer1 <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
-	Reg#(Bit#(64)) doubleBuffer2 <- mkReg(0, clocked_by pcieclk, reset_by pcierst);
-
+	// I/O
+	FIFO#(Bit#(32)) resultQ_1 <- mkFIFO;
+	FIFO#(Bit#(32)) resultQ_2 <- mkFIFO;
+	FIFO#(Bit#(32)) resultQ_3 <- mkFIFO;
+	FIFO#(Bit#(32)) resultQ_4 <- mkFIFO;
+	FIFO#(Bit#(32)) resultQ_5 <- mkFIFO;
+	FIFO#(Bit#(32)) resultQ_6 <- mkFIFO;
+	Reg#(Bool) systemOn_1 <- mkReg(False);
+	Reg#(Bool) systemOn_2 <- mkReg(False);
+	Reg#(Bit#(32)) i <- mkReg(0);
+	Reg#(Bit#(32)) j <- mkReg(0);
+	Reg#(Bit#(32)) k <- mkReg(0);
 	rule echoRead;
-		// read request handle must be returned with pcie.dataSend
 		let r <- pcie.dataReq;
 		let a = r.addr;
-
-		// PCIe IO is done at 4 byte granularities
-		// lower 2 bits are always zero
 		let offset = (a>>2);
+		
 		if ( offset == 0 ) begin 
-			pcie.dataSend(r, truncate(doubleResultBuffer));
-		end else if ( offset == 1 ) begin 
-			pcie.dataSend(r, truncate(doubleResultBuffer>>32));
-		end else if ( offset == 2 ) begin 
-			pcie.dataSend(r, truncate(doubleResultBuffer2));
-		end else if ( offset == 3 ) begin 
-			pcie.dataSend(r, truncate(doubleResultBuffer2>>32));
+			resultQ_1.deq;
+			pcie.dataSend(r, resultQ_1.first);
+		end else if ( offset == 1 ) begin
+			resultQ_2.deq;
+			pcie.dataSend(r, resultQ_2.first);
+		end else if ( offset == 2 ) begin
+			resultQ_3.deq;
+			pcie.dataSend(r, resultQ_3.first);
+		end else if ( offset == 3 ) begin
+			resultQ_4.deq;
+			pcie.dataSend(r, resultQ_4.first);
 		end else if ( offset == 4 ) begin
-			pcie.dataSend(r, cordicResultBuffer);
+			resultQ_5.deq;
+			pcie.dataSend(r, resultQ_5.first);
 		end else if ( offset == 5 ) begin
-			msfpe.deq;
-			let rt = msfpe.first;
-			Bit#(48) t = pack(rt);
-			pcie.dataSend(r, truncate(t)^truncateLSB(t));
-		end else begin
-			//pcie.dataSend(r, pcie.debug_data);
-			pcie.dataSend(r, writeCounter);
+			resultQ_6.deq;
+			pcie.dataSend(r, resultQ_6.first);
 		end
-		$display( "Received read req at %x", r.addr );
 	endrule
 	rule recvWrite;
 		let w <- pcie.dataReceive;
 		let a = w.addr;
 		let d = w.data;
-		
-		// PCIe IO is done at 4 byte granularities
-		// lower 2 bits are always zero
 		let off = (a>>2);
+		
 		if ( off == 0 ) begin
-			doubleBuffer1 <= zeroExtend(d);
+			i <= d;
 		end else if ( off == 1 ) begin
-			doubleBuffer1 <= doubleBuffer1 | (zeroExtend(d)<<32);
+			j <= d;
+			systemOn_1 <= True;
 		end else if ( off == 2 ) begin
-			doubleBuffer2 <= zeroExtend(d);
-		end else if ( off == 3 ) begin
-			Bit#(64) b2 = doubleBuffer2 | (zeroExtend(d)<<32);
-			mult.enq(doubleBuffer1, b2);
-			sqrt.enq(b2);
-
-			// FIXME
-			msfpe.enq(unpack(truncate({doubleBuffer2,doubleBuffer1})));
-		end else if ( off == 4 ) begin
-			sincos.enq(truncate(d));
-		end else begin
-			//pcie.assertUptrain;
-			writeCounter <= writeCounter + 1;
+			k <= d;
+			systemOn_2 <= True;
 		end
-		$display( "Received write req at %x : %x", a, d );
-	endrule
-	rule rrrr;
-		Bit#(64) d = mult.first;
-		mult.deq;
-		doubleResultBuffer <= d;
-		$display( "mult %x ", d );
-	endrule
-	rule rrrr2;
-		Bit#(64) d = sqrt.first;
-		sqrt.deq;
-		doubleResultBuffer2 <= d;
-		$display( "sqrt %x ", d );
-	endrule
-	rule rrrr3;
-		let d = sincos.first;
-		sincos.deq;
-		cordicResultBuffer <= {tpl_1(d),tpl_2(d)};
-		$display( "sincos %x ", d );
 	endrule
 
+	// Floating-Point Operation
+	rule fpOp_1( systemOn_1 );
+		fpAdd.enq(i, j);
+		fpSub.enq(i, j);
+		fpMul.enq(i, j);
+		fpDiv.enq(i, j);
+	endrule
+	rule fpOp_2( systemOn_1 );
+		fpAdd.deq;
+		fpSub.deq;
+		fpMul.deq;
+		fpDiv.deq;
+		let r_1 = fpAdd.first;
+		let r_2 = fpSub.first;
+		let r_3 = fpMul.first;
+		let r_4 = fpDiv.first;
+		resultQ_1.enq(r_1);
+		resultQ_2.enq(r_2);
+		resultQ_3.enq(r_3);
+		resultQ_4.enq(r_4);
+		if ( r_2 > 0 ) resultQ_5.enq(i);
+		else resultQ_5.enq(j);
+		systemOn_1 <= False;
+	endrule
+
+	// Type Converter
+	rule convType_1( systemOn_2 );
+		typeConverter.enq(k);
+	endrule
+	rule convType_2( systemOn_2 );
+		let f <- typeConverter.get();
+		resultQ_6.enq(f);
+		systemOn_2 <= False;
+	endrule
 endmodule
