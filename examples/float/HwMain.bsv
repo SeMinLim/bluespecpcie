@@ -10,7 +10,7 @@ import PcieCtrl::*;
 
 import FloatingPoint::*;
 import Float32::*;
-import UINTtoFLOAT::*;
+import TypeConverter::*;
 
 
 interface HwMainIfc;
