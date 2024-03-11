@@ -1,14 +1,7 @@
 ### DRAM test project
 
-Generating DRAM core is needed for each board
+Generating each DRAM core is needed for each board (VC707, KC705) (located in bluespecpcie/dram)
 
-This project includes examples of using floating-point operations, comparison, and type conversion from unsigned 32-bit integer to float
+Also, "bluespecpcie/dram/src" should be cloned
 
-* Floating-Point Operations
-  * Addition
-  * Subtraction
-  * Multiplication
-  * Division
-  * Square Root
-* Comparison
-* Type Conversion
+This project includes examples of using DRAM, as well as DRAM Arbiter, which is for burst r/w
