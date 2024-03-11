@@ -40,7 +40,9 @@ int main(int argc, char** argv) {
 	printf( "multiplication: %f\n", *(float*)&m );
 	uint32_t d = pcie->userReadWord(12);
 	printf( "division:       %f\n", *(float*)&d );
-	uint32_t c = pcie->userReadWord(16);
+	uint32_t r = pcie->userReadWord(16);
+	printf( "Squareroot:     %f\n", *(float*)&r );
+	uint32_t c = pcie->userReadWord(20);
 	printf( "comparison:     %f\n", *(float*)&c );
 
 	// 2nd: type converter from unsigned 32-bit integer to float
@@ -52,7 +54,7 @@ int main(int argc, char** argv) {
 
 	printf( "Type Conversion Result (Unsigned 32-bit Integer to Float)\n" );
 	printf( "Unsigned 32-bit Integer: %d\n", u );
-	uint32_t f = pcie->userReadWord(20);
+	uint32_t f = pcie->userReadWord(24);
 	printf( "Float:                   %f\n", *(float*)&f );
 
 	return 0;

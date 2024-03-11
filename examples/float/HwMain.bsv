@@ -26,6 +26,7 @@ module mkHwMain#(PcieUserIfc pcie) (HwMainIfc);
 	FpPairIfc#(32) fpSub <- mkFpSub32;
 	FpPairIfc#(32) fpMul <- mkFpMult32;
 	FpPairIfc#(32) fpDiv <- mkFpDiv32;
+	FpFilterIfc#(32) fpSqr <- mkFpSqrt32;
 	UINTtoFLOATIfc typeConverter <- mkUINTtoFLOAT;
 
 	// I/O
@@ -35,6 +36,7 @@ module mkHwMain#(PcieUserIfc pcie) (HwMainIfc);
 	FIFO#(Bit#(32)) resultQ_4 <- mkFIFO;
 	FIFO#(Bit#(32)) resultQ_5 <- mkFIFO;
 	FIFO#(Bit#(32)) resultQ_6 <- mkFIFO;
+	FIFO#(Bit#(32)) resultQ_7 <- mkFIFO;
 	Reg#(Bool) systemOn_1 <- mkReg(False);
 	Reg#(Bool) systemOn_2 <- mkReg(False);
 	Reg#(Bit#(32)) i <- mkReg(0);
@@ -63,6 +65,9 @@ module mkHwMain#(PcieUserIfc pcie) (HwMainIfc);
 		end else if ( offset == 5 ) begin
 			resultQ_6.deq;
 			pcie.dataSend(r, resultQ_6.first);
+		end else if ( offset == 6 ) begin
+			resultQ_7.deq;
+			pcie.dataSend(r, resultQ_7.first);
 		end
 	endrule
 	rule recvWrite;
@@ -88,22 +93,26 @@ module mkHwMain#(PcieUserIfc pcie) (HwMainIfc);
 		fpSub.enq(i, j);
 		fpMul.enq(i, j);
 		fpDiv.enq(i, j);
+		fpSqr.enq(i);
 	endrule
 	rule fpOp_2( systemOn_1 );
 		fpAdd.deq;
 		fpSub.deq;
 		fpMul.deq;
 		fpDiv.deq;
+		fpSqr.deq;
 		let r_1 = fpAdd.first;
 		let r_2 = fpSub.first;
 		let r_3 = fpMul.first;
 		let r_4 = fpDiv.first;
+		let r_5 = fpSqr.first;
 		resultQ_1.enq(r_1);
 		resultQ_2.enq(r_2);
 		resultQ_3.enq(r_3);
 		resultQ_4.enq(r_4);
-		if ( r_2 > 0 ) resultQ_5.enq(i);
-		else resultQ_5.enq(j);
+		resultQ_5.enq(r_5);
+		if ( r_2 > 0 ) resultQ_6.enq(i);
+		else resultQ_6.enq(j);
 		systemOn_1 <= False;
 	endrule
 
@@ -113,7 +122,7 @@ module mkHwMain#(PcieUserIfc pcie) (HwMainIfc);
 	endrule
 	rule convType_2( systemOn_2 );
 		let f <- typeConverter.get();
-		resultQ_6.enq(f);
+		resultQ_7.enq(f);
 		systemOn_2 <= False;
 	endrule
 endmodule
