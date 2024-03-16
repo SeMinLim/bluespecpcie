@@ -31,7 +31,7 @@ module mkHwMain#(PcieUserIfc pcie)
 	endrule
 
 	// Random Number Generator
-	RandomGeneratorIntIfc#(0, 25) randNumGenInt <- mkRandomGeneratorInt;
+	RandomGeneratorIntIfc randNumGenInt <- mkRandomGeneratorInt;
 	RandomGeneratorFpIfc randNumGenFp <- mkRandomGeneratorFp;
 	//--------------------------------------------------------------------------------------------
 	// Get commands from the host via PCIe
@@ -94,7 +94,8 @@ module mkHwMain#(PcieUserIfc pcie)
 	endrule
 	rule genRandNumInt_2( systemOn_1 );
 		let r <- randNumGenInt.get();
-		$write("Random Number (Int): %1d\n", r);
+		Bit#(32) i = r % 26;
+		$write("Random Number (Int): %1d\n", i);
 		if ( rgCnt + 1 == 50 ) begin
 			rgCnt <= 0;
 			systemOn_1 <= False;
