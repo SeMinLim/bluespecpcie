@@ -21,15 +21,6 @@ typedef 2048 SeqSize;
 typedef 16 MotifLength;
 typedef 32 PeNum;
 
-typedef TDiv#(16, 2) CalProbPipe1;
-typedef TDiv#(CalProbPipe1, 2) CalProbPipe2;
-typedef TDiv#(CalProbPipe2, 2) CalProbPipe3;
-
-typedef TDiv#(PeNum, 2) SumProbPipe1;
-typedef TDiv#(SumProbPipe1, 2) SumProbPipe2;
-typedef TDiv#(SumProbPipe2, 2) SumProbPipe3;
-typedef TDiv#(SumProbPipe3, 2) SumProbPipe4;
-
 typedef TSub#(SeqLength, MotifLength) ProbSizeTmp;
 typedef TAdd#(ProbSizeTmp, 1) ProbSize; // 985
 typedef 31 ProbFifoSize;
@@ -55,23 +46,23 @@ module mkProfiler(ProfilerIfc);
 	
 	rule relaySequence;
 		sequenceQ.deq;
-		s = sequenceQ.first;
+		let s = sequenceQ.first;
 		profilerPhase1.putSequence(s);
 		profilerPhase2.putSequence(s);
 	endrule
 
 	rule getProbabilites;
 		let p <- profilerPhase1.getProb;
-		profilerPhase2.putProb;
+		profilerPhase2.putProb(p);
 	endrule
 
-	rule getSum;
-		let s <- profilerPhase2.getSum;
-		profilerPhase2.putSum;
+	rule getSum; // 443 cycles
+		let s <- profilerPhase1.getSum;
+		profilerPhase2.putSum(s);
 	endrule
 
-	rule getResult;
-		let r <- profilerPhase2.getResult;
+	rule getResult; // 42 cycles
+		let r <- profilerPhase2.get;
 		resultQ.enq(r);
 	endrule
 
