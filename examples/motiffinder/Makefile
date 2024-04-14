@@ -6,7 +6,7 @@ BLIBPATH=$(LIBPATH)/../bluelib/src/
 
 GIBBSPATH=gibbssampler
 
-CUSTOMBSV= -p +:$(LIBPATH)/src/:$(LIBPATH)/dram/src:$(BLIBPATH)/:$(BLIBPATH)/msfp/:$(GIBBSPATH) -steps-max-intervals 3000000 +RTS -K1800000000G -RTS
+CUSTOMBSV= -p +:$(LIBPATH)/src/:$(LIBPATH)/dram/src:$(BLIBPATH)/:$(BLIBPATH)/msfp/:$(GIBBSPATH) -steps-max-intervals 3000000 +RTS -K80000k -RTS
 CUSTOMCPP_BSIM= $(BLIBPATH)/bdpi.cpp
 
 include $(BUILDTOOLS)/Makefile.base
