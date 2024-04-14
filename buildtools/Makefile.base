@@ -3,7 +3,7 @@ BSVPATH =$(LIBPATH)/src/
 COREPATH =$(LIBPATH)/core/$(BOARD)/
 #DRAMPATH =$(LIBPATH)/dram/src/
 
-BSCFLAGS = -show-schedule -aggressive-conditions 
+BSCFLAGS = -show-schedule -aggressive-conditions +RTS -K1G -RTS
 
 BSCFLAGS_SYNTH = -bdir ./$(BOARD)/obj -vdir ./$(BOARD)/verilog/top -simdir ./$(BOARD)/obj -info-dir ./$(BOARD) -fdir ./$(BOARD) -D $(BOARD)
 BSCFLAGS_BSIM = -bdir ./bsim/obj -vdir ./bsim/verilog/top -simdir ./bsim/obj -info-dir ./bsim -fdir ./bsim
